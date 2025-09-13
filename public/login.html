@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - 10kVendor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-orange: #FF7A2F;
+            --secondary-brown: #3E2723;
+            --accent-cream: #FFF6ED;
+            --neutral-gray: #555555;
+            --light-gray: #EDEDED;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--accent-cream);
+            color: var(--secondary-brown);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+        
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ripple:after {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10,10);
+            opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+        
+        .ripple:active:after {
+            transform: scale(0,0);
+            opacity: .3;
+            transition: 0s;
+        }
+        
+        .form-card {
+            transition: all 0.3s ease;
+        }
+        
+        .form-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        input:focus {
+            box-shadow: 0 0 0 3px rgba(255, 122, 47, 0.2);
+        }
+        
+        button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 122, 47, 0.3);
+        }
+        
+        .error-message {
+            color: #DC2626; /* Tailwind red-600 */
+            font-size: 0.875rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .loading-spinner {
+            display: none;
+            border: 3px solid var(--light-gray);
+            border-top: 3px solid var(--primary-orange);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading .loading-spinner {
+            display: block;
+        }
+        
+        .loading button[type="submit"],
+        .loading .g_id_signin {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Content -->
+    <main class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="text-3xl font-bold text-orange-600">10k<span class="text-brown-800">Vendor</span></div>
+            <h1 class="text-2xl font-bold mt-2 mb-4">Login to Your Account</h1>
+            <p class="text-sm text-gray-500 mb-6">Log in to access your cart, orders, and saved preferences. Or <a href="/index.html" class="text-orange-500 hover:text-orange-600">continue as a guest</a>.</p>
+        </div>
+        
+        <div class="form-card bg-white rounded-2xl p-8 shadow-sm">
+            <!-- Error Message Container -->
+            <div id="error-message" class="error-message"></div>
+
+            <!-- Loading Spinner -->
+            <div id="loading-spinner" class="loading-spinner"></div>
+
+            <!-- Google Sign-In Button -->
+            <div class="mb-6 flex justify-center">
+                <div id="g_id_onload"
+                     data-client_id="447480791626-h9vevm3fc8heu214tbcmego0obldh1ns.apps.googleusercontent.com"
+                     data-context="signin"
+                     data-callback="handleCredentialResponse"
+                     data-auto_select="false">
+                </div>
+                <div class="g_id_signin" data-type="standard" data-text="signin_with"></div>
+            </div>
+            
+            <!-- Divider -->
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">Or login with email</span>
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="email" class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="email" name="email" required 
+                           class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                           placeholder="Enter your email">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="password" name="password" required 
+                           class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                           placeholder="Enter your password">
+                </div>
+                <button type="submit" class="w-full py-3 bg-orange-500 text-white rounded-lg font-semibold ripple hover:bg-orange-600 transition-colors">Login</button>
+            </form>
+            <p class="text-center text-sm text-gray-500 mt-4">
+                Don't have an account? <a href="/register.html" class="text-orange-500 hover:text-orange-600">Sign Up</a>
+            </p>
+            <p class="text-center text-sm text-gray-500 mt-2">
+                <a href="/forgot-password.html" class="text-orange-500 hover:text-orange-600">Forgot Password?</a>
+            </p>
+        </div>
+    </main>
+
+    <script>
+        feather.replace();
+
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        // Request notification permission
+        async function requestNotificationPermission() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                return permission === 'granted';
+            }
+            return false;
+        }
+
+        // Show browser notification
+        function showBrowserNotification(message) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('10kVendor', {
+                    body: message,
+                    icon: '/images/logo.png',
+                });
+            }
+        }
+
+        // Display error message in the UI
+        function displayErrorMessage(message) {
+            const errorMessageEl = document.getElementById('error-message');
+            errorMessageEl.textContent = message;
+            errorMessageEl.style.display = 'block';
+            setTimeout(() => {
+                errorMessageEl.style.display = 'none';
+                errorMessageEl.textContent = '';
+            }, 5000); // Hide after 5 seconds
+        }
+
+        // Show/hide loading spinner
+        function toggleLoading(show) {
+            const formCard = document.querySelector('.form-card');
+            const spinner = document.getElementById('loading-spinner');
+            if (show) {
+                formCard.classList.add('loading');
+                spinner.style.display = 'block';
+            } else {
+                formCard.classList.remove('loading');
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Handle Google Sign-In
+        async function handleCredentialResponse(response) {
+            toggleLoading(true);
+            const idToken = response.credential;
+            console.log("Encoded JWT ID token: " + idToken);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/google`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ token: idToken }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Google Sign-In failed');
+                }
+
+                const data = await response.json();
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('newSignup', 'true');
+                await mergeGuestCart(data.token);
+                const permissionGranted = await requestNotificationPermission();
+                if (permissionGranted) {
+                    showBrowserNotification(`Welcome to 10kVendor, ${data.user.name}! Your account has been created successfully.`);
+                }
+                const redirect = new URLSearchParams(window.location.search).get('redirect');
+                window.location.href = redirect && ['profile', 'cart', 'orders'].includes(redirect) ? `/${redirect}.html` : '/index.html';
+            } catch (error) {
+                console.error('Error with Google Sign-In:', error);
+                displayErrorMessage(error.message || 'Failed to sign in with Google. Please try again.');
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // Handle login form submission
+        async function handleLogin(event) {
+            event.preventDefault();
+            toggleLoading(true);
+            const email = document.querySelector('#email').value.trim();
+            const password = document.querySelector('#password').value.trim();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    const errorMessage = errorData.message || 'Login failed';
+                    if (errorMessage.toLowerCase().includes('invalid email or password')) {
+                        displayErrorMessage('Invalid email or password. Please try again.');
+                    } else {
+                        displayErrorMessage(errorMessage);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                localStorage.setItem('token', data.token);
+                await mergeGuestCart(data.token);
+                const permissionGranted = await requestNotificationPermission();
+                if (permissionGranted) {
+                    showBrowserNotification(`Welcome back, ${data.user.name}! You have successfully logged in.`);
+                }
+                const redirect = new URLSearchParams(window.location.search).get('redirect');
+                window.location.href = redirect && ['profile', 'cart', 'orders'].includes(redirect) ? `/${redirect}.html` : '/index.html';
+            } catch (error) {
+                console.error('Error logging in:', error);
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // Merge guest cart with user cart
+        async function mergeGuestCart(token) {
+            const guestCart = JSON.parse(localStorage.getItem('guestCart') || '[]');
+            if (guestCart.length > 0) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/cart/merge`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ cart: guestCart }),
+                    });
+                    if (!response.ok) throw new Error('Failed to merge cart');
+                    localStorage.removeItem('guestCart');
+                } catch (error) {
+                    console.error('Error merging cart:', error);
+                }
+            }
+        }
+
+        // Update cart count (not used in login page, but preserved)
+        function updateCartCount(cartItems) {
+            const count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+            document.querySelectorAll('#cart-count').forEach(el => {
+                el.textContent = count;
+                el.classList.toggle('animate-bounce', count > 0);
+            });
+        }
+
+        // Fetch cart (not used in login page, but preserved)
+        async function fetchCart() {
+            try {
+                const token = localStorage.getItem('token');
+                let cartItems = [];
+                if (token) {
+                    const response = await fetch(`${API_BASE_URL}/cart`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        },
+                    });
+                    if (!response.ok) throw new Error('Failed to fetch cart');
+                    const cart = await response.json();
+                    cartItems = cart.items || [];
+                } else {
+                    cartItems = JSON.parse(localStorage.getItem('guestCart') || '[]');
+                }
+                updateCartCount(cartItems);
+            } catch (error) {
+                console.error('Error fetching cart:', error);
+            }
+        }
+
+        // Cart navigation (not used in login page, but preserved)
+        function setupCartNavigation() {
+            document.querySelectorAll('.cart-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    window.location.href = '/cart.html';
+                });
+            });
+        }
+
+        // Ripple effect for buttons
+        function setupRippleEffect() {
+            document.querySelectorAll('.ripple').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    const rect = this.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    this.style.setProperty('--x', x + 'px');
+                    this.style.setProperty('--y', y + 'px');
+                });
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelector('#login-form').addEventListener('submit', handleLogin);
+            fetchCart();
+            setupCartNavigation();
+            setupRippleEffect();
+        });
+    </script>
+</body>
+</html>
