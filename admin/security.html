@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10kVendor | Security</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF7A2F',
+                        dark: '#3A1F0B',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        .sidebar-collapsed {
+            width: 80px;
+        }
+        .sidebar-collapsed .nav-text {
+            display: none;
+        }
+        .sidebar-collapsed .logo-text {
+            display: none;
+        }
+        .sidebar-collapsed .nav-item {
+            justify-content: center;
+        }
+        .dark .dark\:bg-dark {
+            background-color: #1a120b;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        .skeleton {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: .5;
+            }
+            50% {
+                opacity: .2;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-dark text-dark dark:text-gray-200 transition-colors duration-300">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div id="sidebar" class="w-64 bg-white dark:bg-gray-800 shadow-lg flex flex-col transition-all duration-300">
+            <div class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                    <i data-feather="zap" class="text-white"></i>
+                </div>
+                <span class="logo-text ml-3 font-bold text-xl">10kVendor</span>
+            </div>
+            <div class="flex-1 overflow-y-auto py-4">
+                <div class="px-4 mb-6">
+                    <div class="relative">
+                        <input type="text" placeholder="Search..." class="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <i data-feather="search" class="absolute left-3 top-2.5 text-gray-500"></i>
+                    </div>
+                </div>
+                <nav>
+                    <div class="px-2">
+                        <div class="nav-item mb-1">
+                            <a href="/index.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="home"></i>
+                                <span class="nav-text ml-3">Dashboard</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/visitors.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="users"></i>
+                                <span class="nav-text ml-3">Visitors</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/ads-marketing.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="dollar-sign"></i>
+                                <span class="nav-text ml-3">Ads & Marketing</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/sales-orders.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="shopping-bag"></i>
+                                <span class="nav-text ml-3">Sales & Orders</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/products.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="package"></i>
+                                <span class="nav-text ml-3">Products</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/shipping.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="truck"></i>
+                                <span class="nav-text ml-3">Shipping</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/customers.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="user"></i>
+                                <span class="nav-text ml-3">Customers</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/financials.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="bar-chart-2"></i>
+                                <span class="nav-text ml-3">Financials</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/security.html" class="flex items-center px-4 py-3 rounded-lg bg-primary bg-opacity-10 text-primary">
+                                <i data-feather="shield"></i>
+                                <span class="nav-text ml-3">Security</span>
+                            </a>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                        <i data-feather="user" class="text-white"></i>
+                    </div>
+                    <div class="ml-3">
+                        <div class="font-medium">Admin User</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Super Admin</div>
+                    </div>
+                    <button id="theme-toggle" class="ml-auto p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i data-feather="moon" class="hidden dark:block"></i>
+                        <i data-feather="sun" class="dark:hidden"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            <!-- Top Bar -->
+            <header class="bg-white dark:bg-gray-800 shadow-sm">
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <button id="sidebar-toggle" class="mr-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i data-feather="menu"></i>
+                        </button>
+                        <h1 class="text-xl font-semibold">Security Overview</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+                            <i data-feather="bell"></i>
+                            <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i data-feather="message-square"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Security Content -->
+            <main class="p-6">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                    <h2 class="font-semibold mb-4">Security</h2>
+                    <p class="text-gray-500 dark:text-gray-400">This page is under development. Security settings and monitoring will be added soon.</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/animejs/lib/anime.iife.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init();
+
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+        });
+
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('sidebar');
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('sidebar-collapsed');
+        });
+
+        // Replace feather icons
+        document.addEventListener('DOMContentLoaded', function() {
+            feather.replace();
+        });
+    </script>
+</body>
+</html>

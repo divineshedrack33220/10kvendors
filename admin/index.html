@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10kVendor | Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/admin/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF7A2F',
+                        dark: '#3A1F0B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .sidebar-collapsed { width: 80px; }
+        .sidebar-collapsed .nav-text { display: none; }
+        .sidebar-collapsed .logo-text { display: none; }
+        .sidebar-collapsed .nav-item { justify-content: center; }
+        .dark .dark\:bg-dark { background-color: #1a120b; }
+        .chart-container { position: relative; height: 300px; }
+        .shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        .dark .shimmer {
+            background: linear-gradient(90deg, #2d3748 25%, #4a5568 50%, #2d3748 75%);
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+            color: transparent !important;
+        }
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            transform: translate(-50%, -50%);
+        }
+        .dark .btn-loading::after {
+            border-color: #4a5568;
+            border-top-color: transparent;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            min-width: 200px;
+            max-width: 300px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast-success { background: #48bb78; color: white; }
+        .toast-error { background: #f56565; color: white; }
+        .animate-in {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .animate-in.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .recommendation-card {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .recommendation-card.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #recent-activity-table tr {
+            min-height: 48px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        #recent-activity-table tr.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-dark text-dark dark:text-gray-200 transition-colors duration-300">
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div id="sidebar" class="w-64 lg:w-72 xl:w-80 bg-white dark:bg-gray-800 shadow-lg flex flex-col transition-all duration-300">
+            <div class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                    <i data-feather="zap" class="text-white"></i>
+                </div>
+                <span class="logo-text ml-3 font-bold text-xl">10kVendor</span>
+            </div>
+            <div class="flex-1 overflow-y-auto py-4">
+                <div class="px-4 mb-6">
+                    <div class="relative">
+                        <input type="text" placeholder="Search..." class="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <i data-feather="search" class="absolute left-3 top-2.5 text-gray-500"></i>
+                    </div>
+                </div>
+                <nav>
+                    <div class="px-2">
+                        <div class="nav-item mb-1">
+                            <a href="/admin/index.html" class="flex items-center px-4 py-3 rounded-lg bg-primary bg-opacity-10 text-primary">
+                                <i data-feather="home"></i>
+                                <span class="nav-text ml-3">Dashboard</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/visitors.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="users"></i>
+                                <span class="nav-text ml-3">Visitors</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/ads-marketing.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="dollar-sign"></i>
+                                <span class="nav-text ml-3">Ads & Marketing</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/sales-orders.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="shopping-bag"></i>
+                                <span class="nav-text ml-3">Sales & Orders</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/products.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="package"></i>
+                                <span class="nav-text ml-3">Products</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/shipping.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="truck"></i>
+                                <span class="nav-text ml-3">Shipping</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/customers.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="user"></i>
+                                <span class="nav-text ml-3">Customers</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/financials.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="bar-chart-2"></i>
+                                <span class="nav-text ml-3">Financials</span>
+                            </a>
+                        </div>
+                        <div class="nav-item mb-1">
+                            <a href="/admin/security.html" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i data-feather="shield"></i>
+                                <span class="nav-text ml-3">Security</span>
+                            </a>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                        <i data-feather="user" class="text-white"></i>
+                    </div>
+                    <div class="ml-3">
+                        <div id="admin-name" class="font-medium">Admin User</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Super Admin</div>
+                    </div>
+                    <button id="theme-toggle" class="ml-auto p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i data-feather="moon" class="hidden dark:block"></i>
+                        <i data-feather="sun" class="dark:hidden"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            <!-- Top Bar -->
+            <header class="bg-white dark:bg-gray-800 shadow-sm">
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <button id="sidebar-toggle" class="mr-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i data-feather="menu"></i>
+                        </button>
+                        <h1 class="text-xl font-semibold">Dashboard Overview</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+                            <i data-feather="bell"></i>
+                            <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i data-feather="message-square"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Dashboard Content -->
+            <main class="p-4 sm:p-6 lg:p-8">
+                <!-- Error Display -->
+                <div id="error-message" class="hidden bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-4 rounded-lg mb-6 text-center relative">
+                    <span id="error-text"></span>
+                    <button id="error-dismiss" class="absolute top-2 right-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                        <i data-feather="x" class="w-5 h-5"></i>
+                    </button>
+                    <button id="error-retry" class="mt-2 text-sm text-primary hover:text-primary-dark flex items-center justify-center mx-auto hidden">
+                        Retry
+                        <i data-feather="refresh-cw" class="w-4 h-4 ml-1"></i>
+                    </button>
+                </div>
+
+                <!-- Metrics Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 animate-in">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-primary">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Total Visitors</p>
+                                <h3 id="total-visitors" class="text-xl sm:text-2xl font-bold mt-1 shimmer">Loading...</h3>
+                                <p id="visitors-trend" class="text-sm text-green-500 flex items-center mt-1">
+                                    <i data-feather="trending-up" class="w-4 h-4 mr-1"></i>
+                                    <span>Loading...</span>
+                                </p>
+                            </div>
+                            <div class="p-3 rounded-lg bg-primary bg-opacity-10">
+                                <i data-feather="users" class="text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Total Orders</p>
+                                <h3 id="total-orders" class="text-xl sm:text-2xl font-bold mt-1 shimmer">Loading...</h3>
+                                <p id="orders-trend" class="text-sm text-green-500 flex items-center mt-1">
+                                    <i data-feather="trending-up" class="w-4 h-4 mr-1"></i>
+                                    <span>Loading...</span>
+                                </p>
+                            </div>
+                            <div class="p-3 rounded-lg bg-blue-500 bg-opacity-10">
+                                <i data-feather="shopping-bag" class="text-blue-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-green-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Total Revenue</p>
+                                <h3 id="total-revenue" class="text-xl sm:text-2xl font-bold mt-1 shimmer">Loading...</h3>
+                                <p id="revenue-trend" class="text-sm text-green-500 flex items-center mt-1">
+                                    <i data-feather="trending-up" class="w-4 h-4 mr-1"></i>
+                                    <span>Loading...</span>
+                                </p>
+                            </div>
+                            <div class="p-3 rounded-lg bg-green-500 bg-opacity-10">
+                                <i data-feather="dollar-sign" class="text-green-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-purple-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Conversion Rate</p>
+                                <h3 id="conversion-rate" class="text-xl sm:text-2xl font-bold mt-1 shimmer">Loading...</h3>
+                                <p id="conversion-trend" class="text-sm text-red-500 flex items-center mt-1">
+                                    <i data-feather="trending-down" class="w-4 h-4 mr-1"></i>
+                                    <span>Loading...</span>
+                                </p>
+                            </div>
+                            <div class="p-3 rounded-lg bg-purple-500 bg-opacity-10">
+                                <i data-feather="bar-chart-2" class="text-purple-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Charts Row 1 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8 animate-in">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-semibold">Sales Over Time</h2>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 sales-chart-btn" onclick="loadSalesChart('7d')">7D</button>
+                                <button class="px-3 py-1 text-xs rounded-lg bg-primary text-white sales-chart-btn" onclick="loadSalesChart('30d')">30D</button>
+                                <button class="px-3 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 sales-chart-btn" onclick="loadSalesChart('90d')">90D</button>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-semibold">Visitor Funnel</h2>
+                            <button class="text-primary text-sm flex items-center" onclick="exportFunnel()">
+                                <i data-feather="download" class="w-4 h-4 mr-1"></i>
+                                Export
+                            </button>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="funnelChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <!-- Charts Row 2 -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 animate-in">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 class="font-semibold mb-4">Top Categories</h2>
+                        <div class="chart-container">
+                            <canvas id="categoriesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 class="font-semibold mb-4">Ads Performance</h2>
+                        <div class="chart-container">
+                            <canvas id="adsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 class="font-semibold mb-4">Visitor Activity</h2>
+                        <div class="flex justify-center items-center h-full">
+                            <div class="w-64 h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                <p class="text-gray-500">Heatmap Coming Soon</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Recent Activity -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 animate-in">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="font-semibold">Recent Activity</h2>
+                        <button id="refresh-activity" class="text-primary text-sm flex items-center" onclick="loadRecentActivity()">
+                            <i data-feather="refresh-cw" class="w-4 h-4 mr-1"></i>
+                            Refresh
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left border-b border-gray-200 dark:border-gray-700">
+                                    <th class="pb-3">Order ID</th>
+                                    <th class="pb-3">Customer</th>
+                                    <th class="pb-3">Amount</th>
+                                    <th class="pb-3">Status</th>
+                                    <th class="pb-3">Date</th>
+                                    <th class="pb-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-activity-table">
+                                <tr><td colspan="6" class="py-4 text-center shimmer">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex justify-between items-center">
+                        <div id="table-info" class="text-sm text-gray-500 dark:text-gray-400">
+                            Loading...
+                        </div>
+                        <div class="flex space-x-2" id="pagination">
+                            <!-- Pagination will be dynamically updated -->
+                        </div>
+                    </div>
+                </div>
+                <!-- AI Recommendations -->
+                <div class="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 animate-in">
+                    <div class="flex items-center mb-6">
+                        <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                            <i data-feather="zap" class="text-white"></i>
+                        </div>
+                        <h2 class="font-semibold ml-3">AI Recommendations</h2>
+                    </div>
+                    <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                        <!-- Recommendations will be dynamically inserted here -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/admin/static/anime.min.js" onerror="console.warn('Anime.js not loaded. Loading fallback...'); this.src='https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js'"></script>
+    <script>
+        // Debug Anime.js and Feather Icons loading
+        window.addEventListener('load', () => {
+            if (typeof anime !== 'function') {
+                console.warn('Anime.js failed to load. Falling back to CSS transitions.');
+            }
+            if (typeof feather !== 'object') {
+                console.warn('Feather Icons failed to load.');
+            }
+            // Trigger animations for .animate-in elements
+            document.querySelectorAll('.animate-in').forEach((el, index) => {
+                if (typeof anime === 'function') {
+                    anime({
+                        targets: el,
+                        opacity: [0, 1],
+                        translateY: [20, 0],
+                        easing: 'easeOutQuad',
+                        duration: 600,
+                        delay: index * 100
+                    });
+                } else {
+                    setTimeout(() => el.classList.add('show'), index * 100);
+                }
+            });
+        });
+
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+            showToast('Theme switched successfully', 'success');
+        });
+
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('sidebar');
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('sidebar-collapsed');
+            if (typeof anime === 'function') {
+                anime({
+                    targets: '#sidebar',
+                    width: sidebar.classList.contains('sidebar-collapsed') ? '80px' : ['80px', '20rem'],
+                    easing: 'easeInOutQuad',
+                    duration: 300
+                });
+            } else {
+                sidebar.style.width = sidebar.classList.contains('sidebar-collapsed') ? '80px' : '20rem';
+            }
+        });
+
+        // Toast notification function
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type} flex items-center`;
+            toast.innerHTML = `
+                <i data-feather="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-5 h-5 mr-2"></i>
+                <span>${message}</span>
+            `;
+            toastContainer.appendChild(toast);
+            if (typeof feather === 'object') feather.replace();
+
+            if (typeof anime === 'function') {
+                anime({
+                    targets: toast,
+                    translateY: [100, 0],
+                    opacity: [0, 1],
+                    easing: 'easeOutQuad',
+                    duration: 300,
+                    complete: () => {
+                        setTimeout(() => {
+                            anime({
+                                targets: toast,
+                                translateY: 100,
+                                opacity: 0,
+                                easing: 'easeInQuad',
+                                duration: 300,
+                                complete: () => toast.remove()
+                            });
+                        }, 3000);
+                    }
+                });
+            } else {
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // Error display function with retry
+        function showError(message, retryCallback, errorDetails = '') {
+            const errorMessage = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const errorDismiss = document.getElementById('error-dismiss');
+            const errorRetry = document.getElementById('error-retry');
+            errorText.textContent = message + (errorDetails ? ` (${errorDetails})` : '');
+            errorMessage.classList.remove('hidden');
+            if (typeof anime === 'function') {
+                anime({
+                    targets: '#error-message',
+                    opacity: [0, 1],
+                    translateY: [-10, 0],
+                    easing: 'easeOutQuad',
+                    duration: 500
+                });
+                errorDismiss.addEventListener('click', () => {
+                    anime({
+                        targets: '#error-message',
+                        opacity: 0,
+                        translateY: -10,
+                        easing: 'easeInQuad',
+                        duration: 300,
+                        complete: () => errorMessage.classList.add('hidden')
+                    });
+                }, { once: true });
+            } else {
+                errorMessage.classList.add('show');
+                errorDismiss.addEventListener('click', () => {
+                    errorMessage.classList.remove('show');
+                    setTimeout(() => errorMessage.classList.add('hidden'), 300);
+                }, { once: true });
+            }
+            if (retryCallback) {
+                errorRetry.classList.remove('hidden');
+                errorRetry.onclick = async () => {
+                    errorRetry.classList.add('btn-loading');
+                    await retryCallback();
+                    errorRetry.classList.remove('btn-loading');
+                };
+            } else {
+                errorRetry.classList.add('hidden');
+            }
+            if (typeof feather === 'object') feather.replace();
+        }
+
+        // Authentication check
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            console.log('Token:', token); // Debug token
+            if (!token) {
+                showError('No authentication token found.');
+                window.location.href = '/admin/login.html';
+                return false;
+            }
+            try {
+                const response = await fetch('/api/users/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    throw new Error(`Profile fetch failed: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                console.log('Profile data:', data); // Debug profile
+                if (!data.isAdmin) {
+                    localStorage.removeItem('token');
+                    showError('User is not an admin.');
+                    window.location.href = '/admin/login.html';
+                    return false;
+                }
+                document.getElementById('admin-name').textContent = data.name || 'Admin User';
+                showToast('Authenticated successfully', 'success');
+                return true;
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showError('Authentication failed. Please log in again.', checkAuth, error.message);
+                localStorage.removeItem('token');
+                window.location.href = '/admin/login.html';
+                return false;
+            }
+        }
+
+        // Fetch and update metrics
+        async function loadMetrics() {
+            const token = localStorage.getItem('token');
+            try {
+                const usersResponse = await fetch('/api/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!usersResponse.ok) {
+                    throw new Error(`Users fetch failed: ${usersResponse.status} ${usersResponse.statusText}`);
+                }
+                const users = await usersResponse.json();
+                const totalVisitors = users.length || 0;
+                document.getElementById('total-visitors').textContent = totalVisitors.toLocaleString();
+                document.getElementById('total-visitors').classList.remove('shimmer');
+                document.getElementById('visitors-trend').innerHTML = '<i data-feather="trending-up" class="w-4 h-4 mr-1"></i>Updated';
+                if (typeof feather === 'object') feather.replace();
+
+                const ordersResponse = await fetch('/api/orders', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!ordersResponse.ok) {
+                    throw new Error(`Orders fetch failed: ${ordersResponse.status} ${ordersResponse.statusText}`);
+                }
+                const orders = await ordersResponse.json();
+                const totalOrders = orders.length || 0;
+                const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+                document.getElementById('total-orders').textContent = totalOrders.toLocaleString();
+                document.getElementById('total-orders').classList.remove('shimmer');
+                document.getElementById('orders-trend').innerHTML = '<i data-feather="trending-up" class="w-4 h-4 mr-1"></i>Updated';
+                document.getElementById('total-revenue').textContent = `₦${totalRevenue.toLocaleString()}`;
+                document.getElementById('total-revenue').classList.remove('shimmer');
+                document.getElementById('revenue-trend').innerHTML = '<i data-feather="trending-up" class="w-4 h-4 mr-1"></i>Updated';
+                if (typeof feather === 'object') feather.replace();
+
+                const conversionRate = totalVisitors > 0 ? ((totalOrders / totalVisitors) * 100).toFixed(2) : 0;
+                document.getElementById('conversion-rate').textContent = `${conversionRate}%`;
+                document.getElementById('conversion-rate').classList.remove('shimmer');
+                document.getElementById('conversion-trend').innerHTML = '<i data-feather="trending-down" class="w-4 h-4 mr-1"></i>Updated';
+                if (typeof feather === 'object') feather.replace();
+                showToast('Metrics loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+                showError('Failed to load metrics. Please try again.', loadMetrics, error.message);
+            }
+        }
+
+        // Fetch and update sales chart
+        let salesChartInstance;
+        async function loadSalesChart(period = '30d') {
+            const buttons = document.querySelectorAll('.sales-chart-btn');
+            buttons.forEach(btn => btn.classList.remove('btn-loading', 'bg-primary', 'text-white'));
+            const activeBtn = Array.from(buttons).find(btn => btn.textContent === period.toUpperCase());
+            if (activeBtn) activeBtn.classList.add('btn-loading');
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch(`/api/orders?status=Delivered`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    throw new Error(`Sales chart fetch failed: ${response.status} ${response.statusText}`);
+                }
+                const orders = await response.json();
+                const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(endDate.getDate() - days);
+
+                const salesData = Array(days).fill(0);
+                const labels = [];
+                for (let i = 0; i < days; i++) {
+                    const date = new Date(startDate);
+                    date.setDate(startDate.getDate() + i);
+                    labels.push(date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+                    const dayOrders = orders.filter(order => {
+                        const orderDate = new Date(order.createdAt);
+                        return orderDate.toDateString() === date.toDateString();
+                    });
+                    salesData[i] = dayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+                }
+
+                const ctx = document.getElementById('salesChart').getContext('2d');
+                if (salesChartInstance) salesChartInstance.destroy();
+                salesChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Sales',
+                            data: salesData,
+                            backgroundColor: 'rgba(255, 122, 47, 0.1)',
+                            borderColor: '#FF7A2F',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: value => '₦' + value.toLocaleString() }
+                            }
+                        }
+                    }
+                });
+                if (typeof anime === 'function') {
+                    anime({
+                        targets: '#salesChart',
+                        opacity: [0, 1],
+                        scale: [0.95, 1],
+                        easing: 'easeOutQuad',
+                        duration: 500
+                    });
+                } else {
+                    document.getElementById('salesChart').classList.add('show');
+                }
+                showToast(`Sales chart loaded for ${period}`, 'success');
+            } catch (error) {
+                console.error('Error loading sales chart:', error);
+                showError('Failed to load sales chart. Please try again.', () => loadSalesChart(period), error.message);
+            } finally {
+                if (activeBtn) activeBtn.classList.remove('btn-loading');
+                buttons.forEach(btn => btn.classList.remove('bg-primary', 'text-white'));
+                if (activeBtn) activeBtn.classList.add('bg-primary', 'text-white');
+            }
+        }
+
+        // Fetch and update funnel chart
+        async function loadFunnelChart() {
+            const exportBtn = document.querySelector('#funnelChart').parentElement.previousElementSibling.querySelector('button');
+            exportBtn.classList.add('btn-loading');
+            const token = localStorage.getItem('token');
+            try {
+                const usersResponse = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!usersResponse.ok) {
+                    throw new Error(`Users fetch failed: ${usersResponse.status} ${usersResponse.statusText}`);
+                }
+                const users = await usersResponse.json();
+                const cartsResponse = await fetch('/api/carts', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!cartsResponse.ok) {
+                    throw new Error(`Carts fetch failed: ${cartsResponse.status} ${cartsResponse.statusText}`);
+                }
+                const carts = await cartsResponse.json();
+                const ordersResponse = await fetch('/api/orders', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!ordersResponse.ok) {
+                    throw new Error(`Orders fetch failed: ${ordersResponse.status} ${ordersResponse.statusText}`);
+                }
+                const orders = await ordersResponse.json();
+
+                const visitors = users.length || 0;
+                const addToCart = carts.filter(cart => cart.items && cart.items.length > 0).length || 0;
+                const checkout = orders.length || 0;
+                const paid = orders.filter(order => order.status === 'Delivered').length || 0;
+
+                const ctx = document.getElementById('funnelChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Visitors', 'Add to Cart', 'Checkout', 'Paid'],
+                        datasets: [{
+                            label: 'Conversion Funnel',
+                            data: [visitors, addToCart, checkout, paid],
+                            backgroundColor: ['rgba(255, 122, 47, 0.7)', 'rgba(255, 122, 47, 0.5)', 'rgba(255, 122, 47, 0.3)', 'rgba(255, 122, 47, 0.9)'],
+                            borderColor: ['rgba(255, 122, 47, 1)', 'rgba(255, 122, 47, 1)', 'rgba(255, 122, 47, 1)', 'rgba(255, 122, 47, 1)'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+                if (typeof anime === 'function') {
+                    anime({
+                        targets: '#funnelChart',
+                        opacity: [0, 1],
+                        scale: [0.95, 1],
+                        easing: 'easeOutQuad',
+                        duration: 500
+                    });
+                } else {
+                    document.getElementById('funnelChart').classList.add('show');
+                }
+                showToast('Funnel chart loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading funnel chart:', error);
+                showError('Failed to load visitor funnel chart. Please try again.', loadFunnelChart, error.message);
+            } finally {
+                exportBtn.classList.remove('btn-loading');
+            }
+        }
+
+        // Fetch and update categories chart
+        async function loadCategoriesChart() {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch('/api/categories', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) {
+                    throw new Error(`Categories fetch failed: ${response.status} ${response.statusText}`);
+                }
+                const categories = await response.json();
+                const labels = categories.map(cat => cat.name || 'Unknown');
+                const data = categories.map(cat => cat.itemCount || 0);
+
+                const ctx = document.getElementById('categoriesChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels,
+                        datasets: [{
+                            data,
+                            backgroundColor: ['#FF7A2F', '#4BC0C0', '#9966FF', '#FFCD56', '#36A2EB'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+                if (typeof anime === 'function') {
+                    anime({
+                        targets: '#categoriesChart',
+                        opacity: [0, 1],
+                        scale: [0.95, 1],
+                        easing: 'easeOutQuad',
+                        duration: 500
+                    });
+                } else {
+                    document.getElementById('categoriesChart').classList.add('show');
+                }
+                showToast('Categories chart loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading categories chart:', error);
+                showError('Failed to load categories chart. Please try again.', loadCategoriesChart, error.message);
+            }
+        }
+
+        // Force show table rows if animations fail
+        function forceShowRows() {
+            document.querySelectorAll('#recent-activity-table tr').forEach(row => {
+                row.classList.add('show');
+            });
+        }
+
+        // Fetch and update recent activity table
+        let lastTotalOrders = null; // Cache total orders
+        async function loadRecentActivity(page = 1, limit = 4) {
+            const refreshBtn = document.getElementById('refresh-activity');
+            refreshBtn.classList.add('btn-loading');
+            const token = localStorage.getItem('token');
+            console.log('Fetching orders with token:', token); // Debug token
+            try {
+                // Mock data for testing (uncomment to simulate API response)
+                /*
+                const orders = [
+                    { _id: '1', orderNumber: 'ORD001', user: { name: 'John Doe' }, total: 15000, status: 'Delivered', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+                    { _id: '2', orderNumber: 'ORD002', user: { name: 'Jane Smith' }, total: 25000, status: 'In Transit', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+                    { _id: '3', orderNumber: 'ORD003', user: { name: 'Mike Johnson' }, total: 10000, status: 'Placed', createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
+                    { _id: '4', orderNumber: 'ORD004', user: { name: 'Sarah Williams' }, total: 35000, status: 'Cancelled', createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() }
+                ];
+                */
+                const response = await Promise.race([
+                    fetch(`/api/orders?page=${page}&limit=${limit}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), 5000))
+                ]);
+                if (!response.ok) {
+                    throw new Error(`Orders fetch failed: ${response.status} ${response.statusText}`);
+                }
+                const orders = await response.json();
+                console.log('Orders received:', orders); // Debug orders
+                const tbody = document.getElementById('recent-activity-table');
+                tbody.innerHTML = '';
+
+                if (!Array.isArray(orders) || orders.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center">No orders found</td></tr>';
+                    document.getElementById('table-info').textContent = 'No orders available';
+                    document.getElementById('pagination').innerHTML = '';
+                    showToast('No orders found', 'error');
+                    return;
+                }
+
+                orders.forEach((order, index) => {
+                    if (!order || !order._id || !order.createdAt) {
+                        console.warn('Invalid order data:', order);
+                        return;
+                    }
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700';
+                    const date = new Date(order.createdAt);
+                    if (isNaN(date.getTime())) {
+                        console.warn('Invalid date in order:', order);
+                        return;
+                    }
+                    const timeAgo = getTimeAgo(date);
+                    const statusColors = {
+                        'Delivered': 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
+                        'Packed': 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200',
+                        'In Transit': 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
+                        'Cancelled': 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200',
+                        'Placed': 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                    };
+                    row.innerHTML = `
+                        <td class="py-4">${order.orderNumber || 'N/A'}</td>
+                        <td class="py-4">${order.user?.name || 'Unknown'}</td>
+                        <td class="py-4">₦${(order.total || 0).toLocaleString()}</td>
+                        <td class="py-4">
+                            <span class="px-2 py-1 rounded-full text-xs ${statusColors[order.status] || 'bg-gray-100 dark:bg-gray-700'}">${order.status || 'N/A'}</span>
+                        </td>
+                        <td class="py-4">${timeAgo}</td>
+                        <td class="py-4">
+                            <button class="text-primary hover:text-primary-dark" onclick="viewOrder('${order._id}')">
+                                <i data-feather="eye"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                    console.log(`Rendering row ${index + 1}:`, order); // Debug row
+                    if (typeof anime === 'function') {
+                        anime({
+                            targets: row,
+                            opacity: [0, 1],
+                            translateY: [10, 0],
+                            delay: index * 100,
+                            easing: 'easeOutQuad',
+                            duration: 300,
+                            begin: () => console.log(`Animating row ${index + 1}`),
+                            complete: () => row.classList.add('show') // Ensure visibility
+                        });
+                    } else {
+                        setTimeout(() => row.classList.add('show'), index * 100);
+                    }
+                });
+
+                // Force show rows after 1 second if animations fail
+                setTimeout(forceShowRows, 1000);
+
+                const totalResponse = lastTotalOrders ? { ok: true, json: async () => ({ count: lastTotalOrders }) } : await fetch('/api/orders?count=true', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!totalResponse.ok) {
+                    throw new Error(`Count fetch failed: ${totalResponse.status} ${totalResponse.statusText}`);
+                }
+                const totalData = await totalResponse.json();
+                lastTotalOrders = totalData.count || orders.length;
+                const totalPages = Math.ceil(lastTotalOrders / limit);
+                document.getElementById('table-info').textContent = `Showing ${orders.length} of ${lastTotalOrders} entries`;
+                document.getElementById('pagination').innerHTML = `
+                    <button class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-700" onclick="loadRecentActivity(${page - 1})" ${page === 1 ? 'disabled' : ''}>
+                        <i data-feather="chevron-left" class="w-4 h-4"></i>
+                    </button>
+                    <button class="px-3 py-1 rounded-lg bg-primary text-white">${page}</button>
+                    <button class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-700" onclick="loadRecentActivity(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>
+                        <i data-feather="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                `;
+                if (typeof feather === 'object') feather.replace();
+                showToast('Recent activity loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+                showError('Failed to load recent activity. Please try again.', () => loadRecentActivity(page, limit), error.message);
+                document.getElementById('recent-activity-table').innerHTML = '<tr><td colspan="6" class="py-4 text-center">Error loading orders</td></tr>';
+                document.getElementById('table-info').textContent = 'Error loading orders';
+                document.getElementById('pagination').innerHTML = '';
+            } finally {
+                refreshBtn.classList.remove('btn-loading');
+            }
+        }
+
+        // Debounce function to prevent rapid API calls
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Debounced loadRecentActivity
+        const debouncedLoadRecentActivity = debounce(loadRecentActivity, 300);
+        window.loadRecentActivity = debouncedLoadRecentActivity;
+
+        // Load AI recommendations
+        async function loadRecommendations() {
+            const container = document.getElementById('recommendations-container');
+            container.innerHTML = '<div class="col-span-1 md:col-span-2 text-center shimmer py-4">Loading recommendations...</div>';
+            try {
+                // Mock AI recommendation data
+                const recommendations = [
+                    {
+                        id: 'ad-budget',
+                        title: 'Ad Budget Optimization',
+                        description: 'Shift ₦15,000 from Facebook to TikTok ads. Our AI predicts 23% higher ROI based on recent performance.',
+                        icon: 'dollar-sign',
+                        iconColor: 'primary',
+                        actionText: 'Apply Recommendation'
+                    },
+                    {
+                        id: 'post-time',
+                        title: 'Best Time to Post',
+                        description: 'Schedule your next Instagram post for 7:30 PM tomorrow when 68% of your audience is most active.',
+                        icon: 'clock',
+                        iconColor: 'green-500',
+                        actionText: 'Set Reminder'
+                    },
+                    {
+                        id: 'product-discount',
+                        title: 'Product Discount Strategy',
+                        description: 'Offer a 15% discount on electronics category to boost sales by 18% this week, based on market trends.',
+                        icon: 'percent',
+                        iconColor: 'purple-500',
+                        actionText: 'Apply Discount'
+                    }
+                ];
+
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                container.innerHTML = '';
+                recommendations.forEach((rec, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-50 dark:bg-gray-700 rounded-lg p-4 recommendation-card';
+                    card.innerHTML = `
+                        <div class="flex items-start">
+                            <div class="p-2 rounded-lg bg-${rec.iconColor} bg-opacity-10 mr-3">
+                                <i data-feather="${rec.icon}" class="text-${rec.iconColor}"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium">${rec.title}</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${rec.description}</p>
+                                <button class="mt-3 text-primary text-sm flex items-center" onclick="applyRecommendation('${rec.id}')">
+                                    ${rec.actionText}
+                                    <i data-feather="arrow-right" class="w-4 h-4 ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                    if (typeof anime === 'function') {
+                        anime({
+                            targets: card,
+                            opacity: [0, 1],
+                            translateY: [10, 0],
+                            delay: index * 100,
+                            easing: 'easeOutQuad',
+                            duration: 300
+                        });
+                    } else {
+                        setTimeout(() => card.classList.add('show'), index * 100);
+                    }
+                });
+                if (typeof feather === 'object') feather.replace();
+                showToast('Recommendations loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading recommendations:', error);
+                showError('Failed to load recommendations. Please try again.', loadRecommendations, error.message);
+                container.innerHTML = '<div class="col-span-1 md:col-span-2 text-center">Error loading recommendations</div>';
+            }
+        }
+
+        // Export funnel data (placeholder)
+        async function exportFunnel() {
+            const exportBtn = document.querySelector('#funnelChart').parentElement.previousElementSibling.querySelector('button');
+            exportBtn.classList.add('btn-loading');
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                showToast('Funnel data exported successfully', 'success');
+            } catch (error) {
+                console.error('Error exporting funnel:', error);
+                showError('Failed to export funnel data. Please try again.', exportFunnel, error.message);
+            } finally {
+                exportBtn.classList.remove('btn-loading');
+            }
+        }
+
+        // Apply recommendation (placeholder)
+        async function applyRecommendation(type) {
+            const btn = event.currentTarget;
+            btn.classList.add('btn-loading');
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                showToast(`Recommendation for ${type} applied successfully`, 'success');
+            } catch (error) {
+                console.error(`Error applying ${type} recommendation:`, error);
+                showError(`Failed to apply ${type} recommendation. Please try again.`, () => applyRecommendation(type), error.message);
+            } finally {
+                btn.classList.remove('btn-loading');
+            }
+        }
+
+        // Helper function for time ago
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diff = now - date;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            if (hours < 24) return `${hours} hours ago`;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            return `${days} day${days !== 1 ? 's' : ''} ago`;
+        }
+
+        // View order (placeholder)
+        function viewOrder(orderId) {
+            window.location.href = `/admin/sales-orders.html?id=${orderId}`;
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (await checkAuth()) {
+                loadMetrics();
+                loadSalesChart('30d');
+                loadFunnelChart();
+                loadCategoriesChart();
+                loadRecentActivity();
+                loadRecommendations();
+            }
+            if (typeof feather === 'object') feather.replace();
+        });
+    </script>
+</body>
+</html>

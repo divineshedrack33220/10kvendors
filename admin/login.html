@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10kVendor | Admin Login</title>
+    <link rel="icon" type="image/x-icon" href="/admin/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF7A2F',
+                        dark: '#3A1F0B',
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+</head>
+<body class="bg-gray-50 dark:bg-dark text-dark dark:text-gray-200 flex items-center justify-center h-screen">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md">
+        <div class="flex items-center justify-center mb-6">
+            <div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6 text-white">
+                    <path fill="currentColor" d="M12 2L2 7v10l10 5 10-5V7l-10-5zm0 2.24L20.74 9 12 13.76 3.26 9 12 4.24zM12 16l8.74-4.36L12 7.28l-8.74 4.36L12 16z"/>
+                </svg>
+            </div>
+            <h1 class="ml-3 text-2xl font-bold">10kVendor Admin</h1>
+        </div>
+        <form id="loginForm">
+            <div class="mb-4">
+                <label for="email" class="block text-sm font-medium mb-1">Email</label>
+                <input type="email" id="email" class="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary" required>
+            </div>
+            <div class="mb-6">
+                <label for="password" class="block text-sm font-medium mb-1">Password</label>
+                <input type="password" id="password" class="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary" required>
+            </div>
+            <div id="error-message" class="text-red-500 text-sm mb-4 hidden"></div>
+            <button type="submit" class="w-full py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition">Login</button>
+        </form>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('error-message');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await fetch('/api/users/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await response.json();
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    window.location.href = '/admin/index.html';
+                } else {
+                    errorMessage.textContent = data.message || 'Invalid credentials';
+                    errorMessage.classList.remove('hidden');
+                    if (typeof anime === 'function') {
+                        anime({ targets: '#error-message', opacity: [0, 1], translateY: [-10, 0], duration: 500 });
+                    }
+                }
+            } catch (error) {
+                errorMessage.textContent = 'An error occurred. Please try again.';
+                errorMessage.classList.remove('hidden');
+                if (typeof anime === 'function') {
+                    anime({ targets: '#error-message', opacity: [0, 1], translateY: [-10, 0], duration: 500 });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

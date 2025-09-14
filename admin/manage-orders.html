@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10kVendor | Manage Orders</title>
+    <link rel="icon" type="image/x-icon" href="/admin/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF7A2F',
+                        dark: '#1a120b',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        .dark\:bg-dark { background-color: #1a120b; }
+        .shimmer {
+            background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .table-container {
+            overflow-x: auto;
+            min-height: 200px;
+            display: block !important;
+            visibility: visible !important;
+        }
+        #orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            display: table !important;
+            visibility: visible !important;
+        }
+        #orders-table th, #orders-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #4b5563;
+        }
+        #orders-table th {
+            font-weight: 600;
+            font-size: 0.875rem;
+            background-color: #1f2937;
+            color: #d1d5db;
+        }
+        #orders-table tbody tr:hover {
+            background-color: #2d3748;
+        }
+        #orders-table tbody tr:nth-child(even) {
+            background-color: #1f2937;
+        }
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+        .search-container input {
+            padding-left: 2.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .search-container input:focus {
+            box-shadow: 0 0 0 3px rgba(255, 122, 47, 0.3);
+        }
+        .search-container i {
+            position: absolute;
+            left: 0.75rem;
+            color: #9ca3af;
+        }
+        .unattended {
+            background-color: #78350f;
+        }
+        #order-modal .modal-content {
+            max-height: 85vh;
+            overflow-y: auto;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .copy-tooltip {
+            position: absolute;
+            background: #374151;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+        .item-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .item-row select, .item-row input {
+            flex: 1;
+        }
+        .item-row button {
+            flex-shrink: 0;
+        }
+        #error-message {
+            transition: opacity 0.5s ease-in-out;
+        }
+        .filters-container {
+            transition: max-height 0.3s ease-in-out;
+        }
+        @media (max-width: 640px) {
+            .filters-container {
+                max-height: 0;
+                overflow: hidden;
+            }
+            .filters-container.open {
+                max-height: 500px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-dark text-gray-200 font-sans antialiased">
+    <div class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <header class="mb-6 flex items-center justify-between">
+            <div class="flex items-center">
+                <a href="/admin/sales-orders.html" class="mr-4 p-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i data-feather="arrow-left" class="w-5 h-5"></i>
+                </a>
+                <h1 class="text-2xl font-bold">Manage Orders</h1>
+            </div>
+        </header>
+
+        <main>
+            <div id="error-message" class="hidden text-red-500 text-sm mb-6 text-center bg-gray-900 p-4 rounded-lg"></div>
+
+            <!-- Filters Section -->
+            <div class="bg-gray-800 rounded-lg shadow-sm p-6 mb-6" data-aos="fade-up">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-semibold text-lg">Filters</h2>
+                    <button id="toggle-filters" class="sm:hidden px-3 py-1 bg-gray-700 rounded-lg text-sm">Toggle Filters</button>
+                </div>
+                <div id="filters-container" class="filters-container open">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Status</label>
+                            <select id="filter-status" class="w-full p-2 rounded-lg bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all">
+                                <option value="">All Statuses</option>
+                                <option value="Placed">Placed</option>
+                                <option value="Packed">Packed</option>
+                                <option value="In Transit">In Transit</option>
+                                <option value="Delivered">Delivered</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="loadOrdersTable()" class="w-full px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-orange-600 transition-colors">Apply Filters</button>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="clearFilters()" class="w-full px-4 py-2 bg-gray-700 rounded-lg text-sm hover:bg-gray-600 transition-colors">Clear Filters</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Table -->
+            <div class="bg-gray-800 rounded-lg shadow-sm p-6" data-aos="fade-up">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                    <div class="flex items-center justify-between w-full sm:w-auto">
+                        <h2 class="font-semibold text-lg">Orders</h2>
+                        <div class="flex space-x-2 sm:hidden">
+                            <button class="text-primary text-sm flex items-center hover:text-orange-400 transition-colors" onclick="createOrder()">
+                                <i data-feather="plus" class="w-4 h-4 mr-1"></i>
+                                Create
+                            </button>
+                            <button class="text-primary text-sm flex items-center hover:text-orange-400 transition-colors" onclick="loadOrdersTable()">
+                                <i data-feather="refresh-cw" class="w-4 h-4 mr-1"></i>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="search-container">
+                        <i data-feather="search" class="w-5 h-5"></i>
+                        <input id="search-input" type="text" placeholder="Search by Order Number" class="w-full p-2 rounded-lg bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary" aria-label="Search orders">
+                    </div>
+                    <div class="hidden sm:flex space-x-2">
+                        <button class="text-primary text-sm flex items-center hover:text-orange-400 transition-colors" onclick="createOrder()">
+                            <i data-feather="plus" class="w-4 h-4 mr-1"></i>
+                            Create Order
+                        </button>
+                        <button class="text-primary text-sm flex items-center hover:text-orange-400 transition-colors" onclick="loadOrdersTable()">
+                            <i data-feather="refresh-cw" class="w-4 h-4 mr-1"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="orders-table" class="w-full">
+                        <thead>
+                            <tr class="text-left">
+                                <th class="w-1/6">Order Number</th>
+                                <th class="w-1/4">Customer</th>
+                                <th class="w-1/6">Total</th>
+                                <th class="w-1/6">Status</th>
+                                <th class="w-1/6">Date</th>
+                                <th class="w-1/6">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <tr><td colspan="6" class="py-2 shimmer h-12 rounded"></td></tr>
+                            <tr><td colspan="6" class="py-2 shimmer h-12 rounded"></td></tr>
+                            <tr><td colspan="6" class="py-2 shimmer h-12 rounded"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div id="table-info" class="text-sm text-gray-400">
+                        Loading...
+                    </div>
+                    <div class="flex space-x-2" id="pagination"></div>
+                </div>
+            </div>
+
+            <!-- Order Modal -->
+            <div id="order-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center p-4" role="dialog" aria-labelledby="order-modal-title">
+                <div class="bg-gray-800 p-6 sm:p-8 rounded-lg w-full max-w-4xl modal-content">
+                    <h3 id="order-modal-title" class="font-semibold text-xl sm:text-2xl mb-6 text-white">Order Details</h3>
+                    <div id="order-modal-loading" class="hidden text-center text-gray-400 py-4">Loading order details...</div>
+                    <div id="order-modal-content" class="hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <h4 class="font-semibold text-gray-300 text-lg mb-3">Customer Details</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-1">Customer</label>
+                                        <select id="order-customer" name="customer" class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" aria-label="Select customer">
+                                            <option value="">Select Customer</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-1">Phone</label>
+                                        <input type="text" id="order-phone" name="phone" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Customer phone">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-1">Delivery Address</label>
+                                        <select id="order-address" name="address" class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" aria-label="Select delivery address">
+                                            <option value="">Select Address</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-gray-300 text-lg mb-3">Order Summary</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-1">Order Number</label>
+                                        <input type="text" id="order-number" name="orderNumber" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Order number">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-1">Date</label>
+                                        <input type="text" id="order-date" name="date" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Order date">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-1">Status</label>
+                                        <select id="order-status" name="status" class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" aria-label="Order status">
+                                            <option value="Placed">Placed</option>
+                                            <option value="Packed">Packed</option>
+                                            <option value="In Transit">In Transit</option>
+                                            <option value="Delivered">Delivered</option>
+                                            <option value="Cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-gray-300 text-lg mb-3">Financial Details</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-1">Subtotal</label>
+                                    <input type="text" id="order-subtotal" name="subtotal" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Order subtotal">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-1">Delivery Fee</label>
+                                    <input type="text" id="order-deliveryFee" name="deliveryFee" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Delivery fee">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-1">Total</label>
+                                    <input type="text" id="order-total" name="total" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Order total">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-1">Payment Method</label>
+                                    <select id="order-paymentMethod" name="paymentMethod" class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" aria-label="Select payment method">
+                                        <option value="">Select Payment Method</option>
+                                        <option value="Pay on Delivery">Pay on Delivery</option>
+                                        <option value="Card Payment">Card Payment</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Paystack">Paystack</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-1">Payment Status</label>
+                                    <input type="text" id="order-paymentStatus" name="paymentStatus" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Payment status">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-1">Payment Reference</label>
+                                    <input type="text" id="order-paymentReference" name="paymentReference" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" aria-label="Payment reference">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-gray-300 text-lg mb-3">Items</h4>
+                            <div id="order-items-container"></div>
+                            <button id="add-item-button" class="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm flex items-center hover:bg-orange-600 transition-colors hidden">
+                                <i data-feather="plus" class="w-4 h-4 mr-1"></i>
+                                Add Item
+                            </button>
+                        </div>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-gray-300 text-lg mb-3">Order Notes</h4>
+                            <textarea id="order-notes" class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" rows="3" aria-label="Order notes"></textarea>
+                        </div>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-gray-300 text-lg mb-3">Tracking</h4>
+                            <textarea id="order-tracking" readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" rows="4" aria-label="Order tracking"></textarea>
+                        </div>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div class="relative">
+                                <button id="copy-all-button" class="px-4 py-2 bg-gray-700 text-sm text-white rounded-lg flex items-center hover:bg-gray-600 transition-colors" aria-label="Copy all order details">
+                                    <i data-feather="copy" class="w-4 h-4 mr-2"></i>
+                                    Copy All
+                                </button>
+                                <span id="copy-tooltip" class="copy-tooltip">Copied!</span>
+                            </div>
+                            <div class="flex space-x-2 w-full sm:w-auto">
+                                <button type="button" onclick="closeOrderModal()" class="w-full sm:w-auto px-4 py-2 bg-gray-700 rounded-lg text-sm text-white hover:bg-gray-600 transition-colors" aria-label="Cancel">Cancel</button>
+                                <button type="submit" id="order-save-button" class="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-orange-600 transition-colors" aria-label="Save order">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js" onerror="loadLocalAOS()"></script>
+    <script>
+        const API_BASE_URL = 'https://one0kvendor.onrender.com/api';
+        let modalLock = false;
+
+        // Fallback for AOS if CDN fails
+        function loadLocalAOS() {
+            console.warn('AOS CDN failed, attempting to load local AOS');
+            const script = document.createElement('script');
+            script.src = '/admin/static/aos.js';
+            script.onerror = () => console.error('Failed to load local AOS');
+            document.body.appendChild(script);
+        }
+
+        // Initialize on DOM content loaded
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Manage Orders page loaded, initializing at', new Date().toLocaleString());
+            if (typeof AOS !== 'undefined') {
+                AOS.init({ duration: 600, once: true });
+                console.log('AOS initialized');
+            } else {
+                console.warn('AOS not loaded, animations disabled');
+            }
+
+            const token = await checkAuth();
+            if (token) {
+                console.log('Authentication successful, loading orders...');
+                await loadOrdersTable();
+                initWebSocket(token);
+                initSearch();
+                initModalEvents();
+                initFiltersToggle();
+            } else {
+                console.error('Authentication failed, redirecting to login');
+            }
+            if (typeof feather !== 'undefined') {
+                try {
+                    feather.replace();
+                    console.log('Feather Icons initialized');
+                } catch (error) {
+                    console.warn('Feather Icons failed to initialize:', error.message);
+                }
+            } else {
+                console.warn('Feather Icons not loaded, icons may not render');
+            }
+        });
+
+        // Initialize filters toggle for mobile
+        function initFiltersToggle() {
+            const toggleButton = document.getElementById('toggle-filters');
+            const filtersContainer = document.getElementById('filters-container');
+            if (!toggleButton || !filtersContainer) {
+                console.warn('Filters toggle elements not found');
+                return;
+            }
+            toggleButton.addEventListener('click', () => {
+                filtersContainer.classList.toggle('open');
+                toggleButton.textContent = filtersContainer.classList.contains('open') ? 'Hide Filters' : 'Show Filters';
+            });
+        }
+
+        // Initialize modal events
+        function initModalEvents() {
+            const saveButton = document.getElementById('order-save-button');
+            if (!saveButton) {
+                console.error('Save button not found (ID: order-save-button)');
+                return;
+            }
+            saveButton.onclick = () => {
+                const orderId = saveButton.dataset.orderId;
+                if (orderId) {
+                    saveOrder(orderId);
+                } else {
+                    createOrderSubmit();
+                }
+            };
+            const addItemButton = document.getElementById('add-item-button');
+            if (!addItemButton) {
+                console.error('Add item button not found (ID: add-item-button)');
+                return;
+            }
+            addItemButton.onclick = () => addOrderItem();
+        }
+
+        // Error display function
+        function showError(message) {
+            console.error('Error:', message);
+            const errorMessage = document.getElementById('error-message');
+            if (errorMessage) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+                errorMessage.style.opacity = '1';
+                setTimeout(() => {
+                    errorMessage.style.opacity = '0';
+                    setTimeout(() => errorMessage.classList.add('hidden'), 500);
+                }, 4000);
+            } else {
+                console.warn('Error message element not found (ID: error-message)');
+            }
+        }
+
+        // Authentication check
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No token found in localStorage');
+                showError('No authentication token found. Please log in.');
+                window.location.href = '/admin/login.html';
+                return null;
+            }
+            try {
+                console.log('Checking authentication with token:', token.substring(0, 10) + '...');
+                const response = await fetch(`${API_BASE_URL}/users/profile`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Profile fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const data = await response.json();
+                if (!data || !data.isAdmin) {
+                    console.error('User is not an admin or invalid data:', data);
+                    localStorage.removeItem('token');
+                    showError('You do not have admin privileges.');
+                    window.location.href = '/admin/login.html';
+                    return null;
+                }
+                console.log('Admin authenticated:', data.name);
+                return token;
+            } catch (error) {
+                console.error('Auth check error:', error.message);
+                showError('Authentication failed. Please log in again.');
+                localStorage.removeItem('token');
+                window.location.href = '/admin/login.html';
+                return null;
+            }
+        }
+
+        // Initialize WebSocket
+        let socket;
+        function initWebSocket(token) {
+            try {
+                socket = io('https://one0kvendor.onrender.com');
+                socket.on('connect', () => {
+                    console.log('WebSocket connected, joining admin channel');
+                    socket.emit('joinAdmin', `Bearer ${token}`);
+                });
+                socket.on('connect_error', (error) => {
+                    console.error('WebSocket connection error:', error.message);
+                    showError('Failed to connect to real-time updates. Please refresh.');
+                });
+                socket.on('newOrder', (order) => {
+                    if (!order || !order._id) {
+                        console.warn('Invalid order received in newOrder event:', order);
+                        return;
+                    }
+                    console.log('New order received via WebSocket:', order);
+                    const tbody = document.getElementById('orders-table-body');
+                    if (!tbody) {
+                        console.error('Table body not found for new order rendering');
+                        return;
+                    }
+                    const row = document.createElement('tr');
+                    row.className = `border-b border-gray-700 hover:bg-gray-700 ${['Placed'].includes(order.status) ? 'unattended' : ''}`;
+                    row.innerHTML = `
+                        <td class="py-3">${order.orderNumber || 'N/A'}</td>
+                        <td class="py-3">${order.user?.name || 'Unknown'}</td>
+                        <td class="py-3">₦${order.total?.toLocaleString() || '0'}</td>
+                        <td class="py-3">${order.status || 'Unknown'}</td>
+                        <td class="py-3">${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</td>
+                        <td class="py-3">
+                            <button onclick="viewOrder('${order._id}')" class="p-1 text-green-500 hover:text-green-400 transition-colors"><i data-feather="eye"></i></button>
+                            <button onclick="editOrder('${order._id}')" class="p-1 text-blue-500 hover:text-blue-400 transition-colors"><i data-feather="edit"></i></button>
+                            <button onclick="deleteOrder('${order._id}')" class="p-1 text-red-500 hover:text-red-400 transition-colors"><i data-feather="trash-2"></i></button>
+                        </td>
+                    `;
+                    tbody.prepend(row);
+                    try {
+                        feather.replace();
+                    } catch (error) {
+                        console.warn('Feather Icons failed to replace:', error.message);
+                    }
+                    const tableInfo = document.getElementById('table-info');
+                    if (tableInfo) {
+                        tableInfo.textContent = `Showing ${tbody.children.length} of ${tbody.children.length} orders`;
+                    } else {
+                        console.warn('Table info element not found (ID: table-info)');
+                    }
+                });
+                socket.on('orderStatusUpdate', (order) => {
+                    if (!order || !order._id) {
+                        console.warn('Invalid order received in orderStatusUpdate event:', order);
+                        return;
+                    }
+                    console.log('Order update received via WebSocket:', order);
+                    loadOrdersTable();
+                });
+                socket.on('systemAlert', (alert) => {
+                    console.error('System alert:', alert?.message, alert?.error);
+                    showError(alert?.message || 'System error occurred.');
+                });
+            } catch (error) {
+                console.error('WebSocket initialization error:', error.message);
+                showError('Failed to initialize real-time updates. Please refresh.');
+            }
+        }
+
+        // Initialize search functionality
+        function initSearch() {
+            const searchInput = document.getElementById('search-input');
+            if (!searchInput) {
+                console.warn('Search input not found (ID: search-input)');
+                return;
+            }
+            let debounceTimer;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    loadOrdersTable();
+                }, 300);
+            });
+        }
+
+        // Clear filters and search
+        function clearFilters() {
+            const statusFilter = document.getElementById('filter-status');
+            const searchInput = document.getElementById('search-input');
+            if (statusFilter) statusFilter.value = '';
+            else console.warn('Status filter not found (ID: filter-status)');
+            if (searchInput) searchInput.value = '';
+            else console.warn('Search input not found (ID: search-input)');
+            loadOrdersTable();
+        }
+
+        // Fetch and update orders table
+        async function loadOrdersTable(page = 1, limit = 10) {
+            console.log(`loadOrdersTable started: page=${page}, limit=${limit}, time=${new Date().toLocaleString()}`);
+            const tbody = document.getElementById('orders-table-body');
+            const tableInfo = document.getElementById('table-info');
+            const pagination = document.getElementById('pagination');
+
+            if (!tbody || !tableInfo || !pagination) {
+                console.error('DOM elements missing:', { tbody: !!tbody, tableInfo: !!tableInfo, pagination: !!pagination });
+                showError('Table elements not found in DOM. Check HTML structure.');
+                return;
+            }
+
+            tbody.innerHTML = `
+                <tr><td colspan="6" class="py-3 shimmer h-12 rounded"></td></tr>
+                <tr><td colspan="6" class="py-3 shimmer h-12 rounded"></td></tr>
+                <tr><td colspan="6" class="py-3 shimmer h-12 rounded"></td></tr>
+            `;
+            tableInfo.textContent = 'Loading...';
+            pagination.innerHTML = '';
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('No authentication token. Please log in.');
+                tbody.innerHTML = '<tr><td colspan="6" class="py-3 text-center">Authentication required</td></tr>';
+                tableInfo.textContent = 'Error: Authentication required';
+                return;
+            }
+
+            const status = document.getElementById('filter-status')?.value || '';
+            const search = document.getElementById('search-input')?.value || '';
+            let url = `${API_BASE_URL}/orders?page=${page}&limit=${limit}`;
+            if (status) url += `&status=${encodeURIComponent(status)}`;
+            if (search) url += `&orderNumber=${encodeURIComponent(search)}`;
+            console.log('Fetching orders from:', url);
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                console.log('Fetch response:', response.status, response.statusText);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
+                const orders = await response.json();
+                console.log('Orders data:', orders);
+
+                if (!Array.isArray(orders)) {
+                    console.warn('Invalid data format, expected array, received:', typeof orders);
+                    throw new Error('Invalid data format from API');
+                }
+
+                tbody.innerHTML = '';
+                if (orders.length === 0) {
+                    console.log('No orders found');
+                    tbody.innerHTML = '<tr><td colspan="6" class="py-3 text-center">No orders found</td></tr>';
+                    tableInfo.textContent = 'No orders available';
+                    pagination.innerHTML = '';
+                    return;
+                }
+
+                orders.sort((a, b) => {
+                    const statusPriority = { 'Placed': 1, 'Packed': 2, 'In Transit': 3, 'Delivered': 4, 'Cancelled': 5 };
+                    return (statusPriority[a.status] || 6) - (statusPriority[b.status] || 6);
+                });
+
+                orders.forEach(order => {
+                    console.log('Rendering order:', order._id);
+                    const row = document.createElement('tr');
+                    row.className = `border-b border-gray-700 hover:bg-gray-700 ${['Placed'].includes(order.status) ? 'unattended' : ''}`;
+                    row.innerHTML = `
+                        <td class="py-3">${order.orderNumber || 'N/A'}</td>
+                        <td class="py-3">${order.user?.name || 'Unknown'}</td>
+                        <td class="py-3">₦${order.total?.toLocaleString() || '0'}</td>
+                        <td class="py-3">${order.status || 'Unknown'}</td>
+                        <td class="py-3">${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</td>
+                        <td class="py-3">
+                            <button onclick="viewOrder('${order._id}')" class="p-1 text-green-500 hover:text-green-400 transition-colors"><i data-feather="eye"></i></button>
+                            <button onclick="editOrder('${order._id}')" class="p-1 text-blue-500 hover:text-blue-400 transition-colors"><i data-feather="edit"></i></button>
+                            <button onclick="deleteOrder('${order._id}')" class="p-1 text-red-500 hover:text-red-400 transition-colors"><i data-feather="trash-2"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                const countResponse = await fetch(`${API_BASE_URL}/orders?count=true${status ? `&status=${encodeURIComponent(status)}` : ''}${search ? `&orderNumber=${encodeURIComponent(search)}` : ''}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                console.log('Count fetch response:', countResponse.status, countResponse.statusText);
+                if (!countResponse.ok) {
+                    const errorText = await countResponse.text();
+                    throw new Error(`Count fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const countData = await countResponse.json();
+                if (!countData || typeof countData.count !== 'number') {
+                    throw new Error('Invalid count data from API');
+                }
+                const { count } = countData;
+                console.log('Total orders count:', count);
+
+                const totalPages = Math.ceil(count / limit);
+                tableInfo.textContent = `Showing ${orders.length} of ${count} orders`;
+                pagination.innerHTML = `
+                    <button class="px-3 py-1 rounded-lg bg-gray-700 text-sm hover:bg-gray-600 transition-colors" onclick="loadOrdersTable(${page - 1})" ${page === 1 ? 'disabled' : ''}>
+                        <i data-feather="chevron-left" class="w-4 h-4"></i>
+                    </button>
+                    <button class="px-3 py-1 rounded-lg bg-primary text-white text-sm hover:bg-orange-600 transition-colors">${page}</button>
+                    <button class="px-3 py-1 rounded-lg bg-gray-700 text-sm hover:bg-gray-600 transition-colors" onclick="loadOrdersTable(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>
+                        <i data-feather="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                `;
+                try {
+                    feather.replace();
+                } catch (error) {
+                    console.warn('Feather Icons failed to replace:', error.message);
+                }
+                console.log('Table rendered successfully with', orders.length, 'orders');
+            } catch (error) {
+                console.error('Error loading table:', error.message);
+                showError('Failed to load orders. Displaying mock data.');
+                loadMockOrdersTable();
+            }
+        }
+
+        // Fallback mock data rendering
+        function loadMockOrdersTable() {
+            console.log('Loading mock orders due to API failure');
+            const tbody = document.getElementById('orders-table-body');
+            const tableInfo = document.getElementById('table-info');
+            const pagination = document.getElementById('pagination');
+
+            if (!tbody || !tableInfo || !pagination) {
+                console.error('DOM elements missing:', { tbody: !!tbody, tableInfo: !!tableInfo, pagination: !!pagination });
+                showError('Table elements not found in DOM.');
+                return;
+            }
+
+            const mockOrders = [
+                {
+                    _id: 'mock1',
+                    orderNumber: 'ORD-000001',
+                    user: { name: 'John Doe', phone: '+2341234567890', _id: 'user1' },
+                    addressId: { _id: 'addr1', label: 'Home', street: '123 Main St', city: 'Lagos', state: 'Lagos', country: 'Nigeria' },
+                    subtotal: 4000,
+                    deliveryFee: 1000,
+                    total: 5000,
+                    items: [{ product: { _id: 'prod1', name: 'Product A', price: 2000 }, quantity: 2, price: 2000 }],
+                    status: 'Placed',
+                    createdAt: '2025-09-07T00:00:00Z',
+                    paymentMethod: 'Card Payment',
+                    paymentStatus: 'pending',
+                    paymentReference: 'PAY123',
+                    orderNotes: 'Urgent delivery requested',
+                    tracking: [{ status: 'Placed', date: '2025-09-07T00:00:00Z' }]
+                },
+                {
+                    _id: 'mock2',
+                    orderNumber: 'ORD-000002',
+                    user: { name: 'Jane Smith', phone: '+2340987654321', _id: 'user2' },
+                    addressId: { _id: 'addr2', label: 'Work', street: '456 High St', city: 'Abuja', state: 'FCT', country: 'Nigeria' },
+                    subtotal: 6500,
+                    deliveryFee: 1000,
+                    total: 7500,
+                    items: [{ product: { _id: 'prod2', name: 'Product C', price: 2500 }, quantity: 3, price: 2500 }],
+                    status: 'Delivered',
+                    createdAt: '2025-09-06T00:00:00Z',
+                    paymentMethod: 'Bank Transfer',
+                    paymentStatus: 'completed',
+                    paymentReference: 'PAY124',
+                    orderNotes: '',
+                    tracking: [
+                        { status: 'Placed', date: '2025-09-06T00:00:00Z' },
+                        { status: 'Delivered', date: '2025-09-07T00:00:00Z' }
+                    ]
+                }
+            ];
+
+            const search = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const status = document.getElementById('filter-status')?.value || '';
+            const filteredOrders = mockOrders.filter(order => {
+                const matchesSearch = !search || order.orderNumber.toLowerCase().includes(search);
+                const matchesStatus = !status || order.status === status;
+                return matchesSearch && matchesStatus;
+            });
+
+            tbody.innerHTML = '';
+            if (filteredOrders.length === 0) {
+                console.log('No mock orders match filters');
+                tbody.innerHTML = '<tr><td colspan="6" class="py-3 text-center">No orders found</td></tr>';
+                tableInfo.textContent = 'No orders available';
+                pagination.innerHTML = '';
+                return;
+            }
+
+            filteredOrders.forEach(order => {
+                const row = document.createElement('tr');
+                row.className = `border-b border-gray-700 hover:bg-gray-700 ${['Placed'].includes(order.status) ? 'unattended' : ''}`;
+                row.innerHTML = `
+                    <td class="py-3">${order.orderNumber || 'N/A'}</td>
+                    <td class="py-3">${order.user?.name || 'Unknown'}</td>
+                    <td class="py-3">₦${order.total?.toLocaleString() || '0'}</td>
+                    <td class="py-3">${order.status || 'Unknown'}</td>
+                    <td class="py-3">${order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</td>
+                    <td class="py-3">
+                        <button onclick="viewOrder('${order._id}')" class="p-1 text-green-500 hover:text-green-400 transition-colors"><i data-feather="eye"></i></button>
+                        <button onclick="editOrder('${order._id}')" class="p-1 text-blue-500 hover:text-blue-400 transition-colors"><i data-feather="edit"></i></button>
+                        <button onclick="deleteOrder('${order._id}')" class="p-1 text-red-500 hover:text-red-400 transition-colors"><i data-feather="trash-2"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            tableInfo.textContent = `Showing ${filteredOrders.length} of ${filteredOrders.length} orders`;
+            pagination.innerHTML = `
+                <button class="px-3 py-1 rounded-lg bg-gray-700 text-sm hover:bg-gray-600 transition-colors" disabled><i data-feather="chevron-left" class="w-4 h-4"></i></button>
+                <button class="px-3 py-1 rounded-lg bg-primary text-white text-sm hover:bg-orange-600 transition-colors">1</button>
+                <button class="px-3 py-1 rounded-lg bg-gray-700 text-sm hover:bg-gray-600 transition-colors" disabled><i data-feather="chevron-right" class="w-4 h-4"></i></button>
+            `;
+            try {
+                feather.replace();
+            } catch (error) {
+                console.warn('Feather Icons failed to replace:', error.message);
+            }
+            console.log('Mock table rendered with', filteredOrders.length, 'orders');
+        }
+
+        // Fetch users
+        async function fetchUsers() {
+            console.log('Fetching users');
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required.');
+                return [];
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Fetch users failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const users = await response.json();
+                if (!Array.isArray(users)) {
+                    console.warn('Invalid users data, expected array:', users);
+                    return [];
+                }
+                console.log('Fetched users:', users.length);
+                return users;
+            } catch (error) {
+                console.error('Error fetching users:', error.message);
+                showError('Failed to load users.');
+                return [];
+            }
+        }
+
+        // Fetch addresses for a user
+        async function fetchAddresses(userId) {
+            if (!userId) {
+                console.warn('No userId provided for fetching addresses');
+                return [];
+            }
+            console.log('Fetching addresses for user:', userId);
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required.');
+                return [];
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/addresses?user=${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Fetch addresses failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const addresses = await response.json();
+                if (!Array.isArray(addresses)) {
+                    console.warn('Invalid addresses data, expected array:', addresses);
+                    return [];
+                }
+                console.log('Fetched addresses:', addresses.length);
+                return addresses;
+            } catch (error) {
+                console.error('Error fetching addresses:', error.message);
+                showError('Failed to load addresses.');
+                return [];
+            }
+        }
+
+        // Fetch products
+        async function fetchProducts() {
+            console.log('Fetching products');
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required.');
+                return [];
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/products`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Fetch products failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const products = await response.json();
+                if (!Array.isArray(products)) {
+                    console.warn('Invalid products data, expected array:', products);
+                    return [];
+                }
+                console.log('Fetched products:', products.length);
+                return products;
+            } catch (error) {
+                console.error('Error fetching products:', error.message);
+                showError('Failed to load products.');
+                return [];
+            }
+        }
+
+        // Fetch order details
+        async function fetchOrder(orderId) {
+            console.log('fetchOrder called with orderId:', orderId);
+            if (!orderId) {
+                console.error('No order ID provided');
+                showError('Invalid order ID');
+                return null;
+            }
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required. Please log in.');
+                return null;
+            }
+            try {
+                console.log('Fetching order ID:', orderId);
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                });
+                console.log('Fetch order response:', response.status, response.statusText);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Fetch order failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const order = await response.json();
+                if (!order || !order._id) {
+                    console.error('Invalid order data received:', order);
+                    throw new Error('Invalid order data from API');
+                }
+                console.log('Fetched order:', order);
+                return order;
+            } catch (error) {
+                console.error('Error fetching order:', error.message);
+                showError(`Failed to load order details: ${error.message}`);
+                return null;
+            }
+        }
+
+        // Create order
+        async function createOrder() {
+            console.log('createOrder called');
+            if (modalLock) {
+                console.warn('Modal is locked, cannot open create modal');
+                return;
+            }
+            modalLock = true;
+
+            const modal = document.getElementById('order-modal');
+            const modalContent = document.getElementById('order-modal-content');
+            const modalLoading = document.getElementById('order-modal-loading');
+            if (!modal || !modalContent || !modalLoading) {
+                console.error('Modal elements missing:', { modal: !!modal, modalContent: !!modalContent, modalLoading: !!modalLoading });
+                showError('Modal elements not found in DOM');
+                modalLock = false;
+                return;
+            }
+            modalContent.classList.add('hidden');
+            modalLoading.classList.remove('hidden');
+            modalLoading.textContent = 'Loading create order form...';
+            modal.classList.remove('hidden');
+
+            try {
+                const users = await fetchUsers();
+                const products = await fetchProducts();
+                if (!users.length || !products.length) {
+                    throw new Error('No users or products available');
+                }
+                openOrderModal({ items: [], user: {}, addressId: {} }, false, true, users, [], products);
+            } catch (error) {
+                console.error('Error preparing create order:', error.message);
+                modalLoading.textContent = 'Failed to load create order form: ' + error.message;
+                modalLock = false;
+            }
+        }
+
+        // Create order submission
+        async function createOrderSubmit() {
+            console.log('createOrderSubmit called');
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required. Please log in.');
+                return;
+            }
+
+            const customerSelect = document.getElementById('order-customer');
+            const addressSelect = document.getElementById('order-address');
+            const paymentMethodSelect = document.getElementById('order-paymentMethod');
+            const orderNotes = document.getElementById('order-notes');
+            const itemRows = document.querySelectorAll('.item-row');
+            if (!customerSelect || !addressSelect || !paymentMethodSelect || !orderNotes) {
+                console.error('Form elements missing:', {
+                    customerSelect: !!customerSelect,
+                    addressSelect: !!addressSelect,
+                    paymentMethodSelect: !!paymentMethodSelect,
+                    orderNotes: !!orderNotes
+                });
+                showError('Form elements missing');
+                return;
+            }
+
+            const items = Array.from(itemRows).map((row, index) => {
+                const productSelect = row.querySelector(`#item-product-${index}`);
+                const quantityInput = row.querySelector(`#item-quantity-${index}`);
+                if (!productSelect || !quantityInput) {
+                    console.warn(`Item row ${index} missing elements`);
+                    return null;
+                }
+                const productOption = productSelect.options[productSelect.selectedIndex];
+                if (!productOption || !productOption.dataset.product) {
+                    console.warn(`No product selected in item row ${index}`);
+                    return null;
+                }
+                const product = JSON.parse(productOption.dataset.product);
+                return {
+                    product: product._id || null,
+                    quantity: parseInt(quantityInput.value) || 1,
+                    price: product.price || 0
+                };
+            }).filter(item => item && item.product);
+
+            const data = {
+                items,
+                deliveryAddress: addressSelect.value,
+                paymentMethod: paymentMethodSelect.value,
+                orderNotes: orderNotes.value.trim()
+            };
+
+            if (!data.items.length || !data.deliveryAddress || !data.paymentMethod) {
+                console.error('Validation failed:', { items: data.items, deliveryAddress: data.deliveryAddress, paymentMethod: data.paymentMethod });
+                showError('Please fill all required fields: items, delivery address, and payment method.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                console.log('Create order response:', response.status, response.statusText);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Create failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const newOrder = await response.json();
+                console.log('Order created:', newOrder);
+                closeOrderModal();
+                loadOrdersTable();
+            } catch (error) {
+                console.error('Error creating order:', error.message);
+                showError(`Failed to create order: ${error.message}`);
+            }
+        }
+
+        // View order details
+        async function viewOrder(orderId) {
+            console.log('viewOrder called with orderId:', orderId);
+            if (modalLock) {
+                console.warn('Modal is locked, cannot open view modal');
+                return;
+            }
+            modalLock = true;
+
+            const modal = document.getElementById('order-modal');
+            const modalContent = document.getElementById('order-modal-content');
+            const modalLoading = document.getElementById('order-modal-loading');
+            if (!modal || !modalContent || !modalLoading) {
+                console.error('Modal elements missing:', { modal: !!modal, modalContent: !!modalContent, modalLoading: !!modalLoading });
+                showError('Modal elements not found in DOM');
+                modalLock = false;
+                return;
+            }
+            modalContent.classList.add('hidden');
+            modalLoading.classList.remove('hidden');
+            modalLoading.textContent = 'Loading order details...';
+            modal.classList.remove('hidden');
+
+            try {
+                const order = await fetchOrder(orderId);
+                if (!order) {
+                    throw new Error('No order data returned');
+                }
+                const users = await fetchUsers();
+                const addresses = order.user?._id ? await fetchAddresses(order.user._id) : [];
+                const products = await fetchProducts();
+                openOrderModal(order, true, false, users, addresses, products);
+            } catch (error) {
+                console.error('Error in viewOrder:', error.message);
+                modalLoading.textContent = 'Failed to load order details: ' + error.message;
+                modalLock = false;
+            }
+        }
+
+        // Edit order
+        async function editOrder(orderId) {
+            console.log('editOrder called with orderId:', orderId);
+            if (modalLock) {
+                console.warn('Modal is locked, cannot open edit modal');
+                return;
+            }
+            modalLock = true;
+
+            const modal = document.getElementById('order-modal');
+            const modalContent = document.getElementById('order-modal-content');
+            const modalLoading = document.getElementById('order-modal-loading');
+            if (!modal || !modalContent || !modalLoading) {
+                console.error('Modal elements missing:', { modal: !!modal, modalContent: !!modalContent, modalLoading: !!modalLoading });
+                showError('Modal elements not found in DOM');
+                modalLock = false;
+                return;
+            }
+            modalContent.classList.add('hidden');
+            modalLoading.classList.remove('hidden');
+            modalLoading.textContent = 'Loading order details...';
+            modal.classList.remove('hidden');
+
+            try {
+                const order = await fetchOrder(orderId);
+                if (!order) {
+                    throw new Error('No order data returned');
+                }
+                const users = await fetchUsers();
+                const addresses = order.user?._id ? await fetchAddresses(order.user._id) : [];
+                const products = await fetchProducts();
+                openOrderModal(order, false, false, users, addresses, products);
+            } catch (error) {
+                console.error('Error in editOrder:', error.message);
+                modalLoading.textContent = 'Failed to load order details: ' + error.message;
+                modalLock = false;
+            }
+        }
+
+        // Add order item
+        function addOrderItem(productId = '', quantity = 1, products = []) {
+            console.log('addOrderItem called:', { productId, quantity, products: products.length });
+            const container = document.getElementById('order-items-container');
+            if (!container) {
+                console.error('Items container not found (ID: order-items-container)');
+                return;
+            }
+            const index = container.querySelectorAll('.item-row').length;
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.innerHTML = `
+                <select id="item-product-${index}" class="p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" aria-label="Select product">
+                    <option value="">Select Product</option>
+                    ${products.map(p => `<option value="${p._id}" data-product='${JSON.stringify(p).replace(/'/g, "&#39;")}' ${p._id === productId ? 'selected' : ''}>${p.name} (₦${p.price?.toLocaleString() || '0'})</option>`).join('')}
+                </select>
+                <input type="number" id="item-quantity-${index}" value="${quantity}" min="1" class="p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary transition-all" aria-label="Item quantity">
+                <button class="remove-item-button px-2 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"><i data-feather="trash-2" class="w-4 h-4"></i></button>
+            `;
+            container.appendChild(row);
+            const removeButton = row.querySelector('.remove-item-button');
+            if (removeButton) {
+                removeButton.onclick = () => removeOrderItem(row);
+            } else {
+                console.warn('Remove button not found in item row');
+            }
+            try {
+                feather.replace();
+            } catch (error) {
+                console.warn('Feather Icons failed to replace:', error.message);
+            }
+        }
+
+        // Remove order item
+        function removeOrderItem(row) {
+            console.log('removeOrderItem called');
+            if (row && row.parentNode) {
+                row.parentNode.removeChild(row);
+            } else {
+                console.warn('Invalid row or parent node for removal');
+            }
+        }
+
+        // Open order modal
+        async function openOrderModal(order, isViewOnly = false, isCreate = false, users = [], addresses = [], products = []) {
+            console.log('openOrderModal called with order:', order?._id || 'new', 'isViewOnly:', isViewOnly, 'isCreate:', isCreate);
+            if (!order) {
+                console.warn('Invalid order data for modal');
+                showError('Invalid order data');
+                modalLock = false;
+                return;
+            }
+
+            const modal = document.getElementById('order-modal');
+            const modalTitle = document.getElementById('order-modal-title');
+            const modalContent = document.getElementById('order-modal-content');
+            const modalLoading = document.getElementById('order-modal-loading');
+            const saveButton = document.getElementById('order-save-button');
+            const copyButton = document.getElementById('copy-all-button');
+            const itemsContainer = document.getElementById('order-items-container');
+            const addItemButton = document.getElementById('add-item-button');
+
+            if (!modal || !modalTitle || !modalContent || !modalLoading || !saveButton || !copyButton || !itemsContainer || !addItemButton) {
+                console.error('Modal elements missing:', {
+                    modal: !!modal,
+                    modalTitle: !!modalTitle,
+                    modalContent: !!modalContent,
+                    modalLoading: !!modalLoading,
+                    saveButton: !!saveButton,
+                    copyButton: !!copyButton,
+                    itemsContainer: !!itemsContainer,
+                    addItemButton: !!addItemButton
+                });
+                showError('Modal elements not found in DOM');
+                modalLock = false;
+                return;
+            }
+
+            // Reset modal state
+            modalContent.classList.add('hidden');
+            modalLoading.classList.remove('hidden');
+            itemsContainer.innerHTML = '';
+            saveButton.dataset.orderId = isCreate ? '' : order._id || '';
+            modalTitle.textContent = isCreate ? 'Create Order' : isViewOnly ? 'View Order' : 'Edit Order';
+            saveButton.classList.toggle('hidden', isViewOnly);
+            addItemButton.classList.toggle('hidden', isViewOnly || !isCreate);
+
+            const safeValue = (value, fallback = 'N/A') => value ?? fallback;
+            const safeNumber = (value, fallback = 0) => (typeof value === 'number' ? value : fallback);
+            const safeDate = (date) => date ? new Date(date).toLocaleString() : 'N/A';
+
+            const customerSelect = document.getElementById('order-customer');
+            const addressSelect = document.getElementById('order-address');
+            const phoneInput = document.getElementById('order-phone');
+            const statusSelect = document.getElementById('order-status');
+            const paymentMethodSelect = document.getElementById('order-paymentMethod');
+            const notesTextarea = document.getElementById('order-notes');
+            if (!customerSelect || !addressSelect || !phoneInput || !statusSelect || !paymentMethodSelect || !notesTextarea) {
+                console.error('Form elements missing:', {
+                    customerSelect: !!customerSelect,
+                    addressSelect: !!addressSelect,
+                    phoneInput: !!phoneInput,
+                    statusSelect: !!statusSelect,
+                    paymentMethodSelect: !!paymentMethodSelect,
+                    notesTextarea: !!notesTextarea
+                });
+                showError('Form elements missing');
+                modalLock = false;
+                return;
+            }
+
+            customerSelect.innerHTML = `<option value="">Select Customer</option>${users.map(u => `<option value="${u._id}" data-phone="${safeValue(u.phone)}" ${u._id === order.user?._id ? 'selected' : ''}>${safeValue(u.name)}</option>`).join('')}`;
+            addressSelect.innerHTML = `<option value="">Select Address</option>${addresses.map(a => `<option value="${a._id}" ${a._id === order.addressId?._id ? 'selected' : ''}>${safeValue(a.label)}${a.label ? ': ' : ''}${safeValue(a.street)}, ${safeValue(a.city)}, ${safeValue(a.state)}, ${safeValue(a.country)}${a.postalCode ? ', ' + safeValue(a.postalCode) : ''}</option>`).join('')}`;
+            document.getElementById('order-number').value = safeValue(order.orderNumber);
+            phoneInput.value = safeValue(order.user?.phone);
+            document.getElementById('order-subtotal').value = `₦${safeNumber(order.subtotal).toLocaleString()}`;
+            document.getElementById('order-deliveryFee').value = `₦${safeNumber(order.deliveryFee).toLocaleString()}`;
+            document.getElementById('order-total').value = `₦${safeNumber(order.total).toLocaleString()}`;
+            statusSelect.value = safeValue(order.status, 'Placed');
+            document.getElementById('order-date').value = safeDate(order.createdAt);
+            paymentMethodSelect.value = safeValue(order.paymentMethod);
+            document.getElementById('order-paymentStatus').value = safeValue(order.paymentStatus);
+            document.getElementById('order-paymentReference').value = safeValue(order.paymentReference);
+            notesTextarea.value = safeValue(order.orderNotes);
+            document.getElementById('order-tracking').value = Array.isArray(order.tracking) && order.tracking.length > 0 ? order.tracking.map(t => `${safeValue(t.status)} at ${safeDate(t.date)}`).join('\n') : 'N/A';
+
+            // Populate items
+            if (isCreate || !isViewOnly) {
+                const items = Array.isArray(order.items) ? order.items : [];
+                if (items.length === 0 && isCreate) {
+                    addOrderItem('', 1, products);
+                } else {
+                    items.forEach(item => addOrderItem(item.product?._id, item.quantity, products));
+                }
+            } else {
+                itemsContainer.innerHTML = `<textarea readonly class="w-full p-2 rounded-lg bg-gray-700 text-sm text-gray-200 focus:outline-none" rows="4" aria-label="Order items">${Array.isArray(order.items) && order.items.length > 0 ? order.items.map(item => `${safeValue(item.product?.name, 'Unknown')} (Qty: ${safeNumber(item.quantity)}, ₦${safeNumber(item.price).toLocaleString()})`).join('\n') : 'N/A'}</textarea>`;
+            }
+
+            // Set field states
+            customerSelect.disabled = isViewOnly || !isCreate;
+            addressSelect.disabled = isViewOnly || !isCreate;
+            phoneInput.disabled = true;
+            statusSelect.disabled = isViewOnly;
+            paymentMethodSelect.disabled = isViewOnly || !isCreate;
+            notesTextarea.disabled = isViewOnly || !isCreate;
+            document.getElementById('order-number').disabled = true;
+            document.getElementById('order-subtotal').disabled = true;
+            document.getElementById('order-deliveryFee').disabled = true;
+            document.getElementById('order-total').disabled = true;
+            document.getElementById('order-date').disabled = true;
+            document.getElementById('order-paymentStatus').disabled = true;
+            document.getElementById('order-paymentReference').disabled = true;
+            document.getElementById('order-tracking').disabled = true;
+
+            // Update address on customer change
+            customerSelect.onchange = async () => {
+                const userId = customerSelect.value;
+                if (!userId) {
+                    phoneInput.value = 'N/A';
+                    addressSelect.innerHTML = '<option value="">Select Address</option>';
+                    return;
+                }
+                phoneInput.value = customerSelect.options[customerSelect.selectedIndex]?.dataset.phone || 'N/A';
+                try {
+                    const addresses = await fetchAddresses(userId);
+                    addressSelect.innerHTML = `<option value="">Select Address</option>${addresses.map(a => `<option value="${a._id}">${safeValue(a.label)}${a.label ? ': ' : ''}${safeValue(a.street)}, ${safeValue(a.city)}, ${safeValue(a.state)}, ${safeValue(a.country)}${a.postalCode ? ', ' + safeValue(a.postalCode) : ''}</option>`).join('')}`;
+                } catch (error) {
+                    console.error('Error updating addresses:', error.message);
+                    addressSelect.innerHTML = '<option value="">No addresses available</option>';
+                }
+            };
+
+            copyButton.onclick = () => {
+                console.log('Copy All button clicked for order:', order._id || 'new');
+                const orderText = `
+Order Details:
+Order Number: ${safeValue(order.orderNumber)}
+Customer Name: ${safeValue(customerSelect.options[customerSelect.selectedIndex]?.text)}
+Customer Phone: ${safeValue(phoneInput.value)}
+Delivery Address: ${safeValue(addressSelect.options[addressSelect.selectedIndex]?.text)}
+Date: ${safeDate(order.createdAt)}
+Status: ${safeValue(statusSelect.value, 'Placed')}
+Subtotal: ₦${safeNumber(order.subtotal).toLocaleString()}
+Delivery Fee: ₦${safeNumber(order.deliveryFee).toLocaleString()}
+Total: ₦${safeNumber(order.total).toLocaleString()}
+Payment Method: ${safeValue(paymentMethodSelect.value)}
+Payment Status: ${safeValue(order.paymentStatus)}
+Payment Reference: ${safeValue(order.paymentReference)}
+Items:
+${isCreate || !isViewOnly ? Array.from(itemsContainer.querySelectorAll('.item-row')).map((row, i) => {
+                    const prodSelect = row.querySelector(`#item-product-${i}`);
+                    const qtyInput = row.querySelector(`#item-quantity-${i}`);
+                    if (!prodSelect || !qtyInput) return '- Invalid item';
+                    const prodOption = prodSelect.options[prodSelect.selectedIndex];
+                    const prod = prodOption ? JSON.parse(prodOption.dataset.product || '{}') : {};
+                    return `- ${safeValue(prod.name, 'Unknown')} (Qty: ${safeNumber(qtyInput.value)}, ₦${safeNumber(prod.price).toLocaleString()})`;
+                }).join('\n') : (Array.isArray(order.items) ? order.items.map(item => `- ${safeValue(item.product?.name, 'Unknown')} (Qty: ${safeNumber(item.quantity)}, ₦${safeNumber(item.price).toLocaleString()})`).join('\n') : 'N/A')}
+Order Notes: ${safeValue(notesTextarea.value)}
+Tracking:
+${Array.isArray(order.tracking) ? order.tracking.map(t => `- ${safeValue(t.status)} at ${safeDate(t.date)}`).join('\n') : 'N/A'}
+                `.trim();
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(orderText).then(() => {
+                        console.log('Order details copied to clipboard for order:', order._id || 'new');
+                        const tooltip = document.getElementById('copy-tooltip');
+                        if (tooltip) {
+                            tooltip.classList.add('show');
+                            setTimeout(() => tooltip.classList.remove('show'), 2000);
+                        }
+                    }).catch(err => {
+                        console.error('Failed to copy order details:', err.message);
+                        showError('Failed to copy order details.');
+                    });
+                } else {
+                    console.error('Clipboard API not supported');
+                    showError('Copying not supported in this browser.');
+                }
+            };
+
+            modalLoading.classList.add('hidden');
+            modalContent.classList.remove('hidden');
+            modalLock = false;
+            console.log('Modal opened successfully for order:', order._id || 'new');
+        }
+
+        // Close order modal
+        function closeOrderModal() {
+            console.log('Closing order modal');
+            if (modalLock) {
+                console.warn('Modal is locked, cannot close');
+                return;
+            }
+            modalLock = true;
+
+            const modal = document.getElementById('order-modal');
+            if (!modal) {
+                console.error('Modal element not found (ID: order-modal)');
+                modalLock = false;
+                return;
+            }
+            modal.classList.add('hidden');
+            modalLock = false;
+            console.log('Modal closed successfully');
+        }
+
+        // Save order changes
+        async function saveOrder(orderId) {
+            console.log('Saving order:', orderId);
+            const statusSelect = document.getElementById('order-status');
+            if (!statusSelect) {
+                console.error('Status select element not found (ID: order-status)');
+                showError('Cannot save order: Status field missing');
+                return;
+            }
+            const status = statusSelect.value;
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required. Please log in.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                console.log('Save order response:', response.status, response.statusText);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Save failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
+                const updatedOrder = await response.json();
+                console.log('Order updated:', updatedOrder);
+                closeOrderModal();
+                loadOrdersTable();
+            } catch (error) {
+                console.error('Error saving order:', error.message);
+                showError('Failed to save order. Please try again.');
+            }
+        }
+
+        // Delete order
+        async function deleteOrder(orderId) {
+            console.log('Deleting order:', orderId);
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                showError('Authentication required. Please log in.');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete this order?')) {
+                console.log('Delete order cancelled');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                console.log('Delete order response:', response.status, response.statusText);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Delete failed: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
+                console.log('Order deleted:', orderId);
+                loadOrdersTable();
+            } catch (error) {
+                console.error('Error deleting order:', error.message);
+                showError('Failed to delete order. Please try again.');
+            }
+        }
+
+    </script>
+</body>
+</html>
