@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10kVendor - Your Orders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-orange: #FF7A2F;
+            --secondary-brown: #3E2723;
+            --accent-cream: #FFF6ED;
+            --neutral-gray: #555555;
+            --light-gray: #EDEDED;
+            --alert-red: #EF4444;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--accent-cream);
+            color: var(--secondary-brown);
+        }
+        
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ripple:after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10,10);
+            opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+        
+        .ripple:active:after {
+            transform: scale(0,0);
+            opacity: .3;
+            transition: 0s;
+        }
+        
+        .order-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .tracking-step {
+            position: relative;
+        }
+        
+        .tracking-step::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 30px;
+            height: calc(100% - 30px);
+            width: 2px;
+            background-color: var(--primary-orange);
+            z-index: -1;
+        }
+        
+        .tracking-step:last-child::before {
+            display: none;
+        }
+        
+        .tracking-step.completed .tracking-icon {
+            background-color: var(--primary-orange);
+            color: white;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            z-index: 50;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            background-color: #10B981;
+            color: white;
+        }
+
+        .toast.error {
+            background-color: var(--alert-red);
+            color: white;
+        }
+
+        /* Shimmer Loading Styles */
+        .shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .shimmer-card {
+            background: #f0f0f0;
+            border-radius: 0.5rem;
+            height: 12rem;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: var(--accent-cream);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            text-align: left;
+            max-width: 90%;
+            width: 500px;
+            position: relative;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: scale(0.7);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        @media (max-width: 640px) {
+            .modal-content {
+                width: 90%;
+                padding: 1rem;
+            }
+        }
+
+        .modal.show .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            cursor: pointer;
+            background: var(--light-gray);
+            border-radius: 50%;
+            padding: 0.25rem;
+        }
+        
+        @media (min-width: 768px) {
+            .bottom-nav {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20 md:pb-0">
+    <!-- Top Navigation -->
+    <header class="bg-white shadow-sm sticky top-0 z-10" role="banner">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="text-2xl font-bold text-orange-600" aria-label="10kVendor logo">10k<span class="text-secondary-brown">Vendor</span></div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="p-2 rounded-full hover:bg-gray-100 ripple" aria-label="Notifications">
+                    <i data-feather="bell" class="w-6 h-6 text-neutral-gray" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Order Details Modal -->
+    <div id="order-details-modal" class="modal" role="dialog" aria-labelledby="order-details-modal-title">
+        <div class="modal-content">
+            <i data-feather="x" class="modal-close w-6 h-6 text-neutral-gray hover:text-gray-700" id="close-order-details-modal" aria-label="Close order details modal"></i>
+            <h2 id="order-details-modal-title" class="text-lg font-bold mb-4">Order Details</h2>
+            <div id="order-details-content" class="text-sm">
+                <div class="shimmer w-full h-4 mb-2"></div>
+                <div class="shimmer w-3/4 h-4 mb-2"></div>
+                <div class="shimmer w-full h-16 mb-2"></div>
+                <div class="shimmer w-1/2 h-4 mb-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-4" role="main">
+        <!-- Orders Section -->
+        <section class="mb-8" aria-labelledby="orders-heading">
+            <h2 class="text-xl font-bold mb-4" id="orders-heading">Your Orders</h2>
+            <div id="error-message" class="hidden text-red-500 text-sm mb-4 text-center"></div>
+            
+            <!-- Tabs for Active Orders and History -->
+            <div class="flex border-b border-gray-200 mb-4" role="tablist">
+                <button class="active-tab flex-1 py-2 px-4 text-center font-medium border-b-2 border-orange-500 text-orange-500 ripple" onclick="showTab('active-orders')" role="tab" aria-selected="true" aria-controls="active-orders">Active Orders</button>
+                <button class="history-tab flex-1 py-2 px-4 text-center font-medium text-gray-500 ripple" onclick="showTab('order-history')" role="tab" aria-selected="false" aria-controls="order-history">Order History</button>
+            </div>
+
+            <!-- Active Orders -->
+            <div id="active-orders" class="tab-content" role="tabpanel">
+                <div class="shimmer shimmer-card mb-4"></div>
+                <div class="shimmer shimmer-card mb-4"></div>
+                <div class="shimmer shimmer-card mb-4"></div>
+            </div>
+
+            <!-- Order History -->
+            <div id="order-history" class="tab-content hidden" role="tabpanel">
+                <div class="shimmer shimmer-card mb-4"></div>
+                <div class="shimmer shimmer-card mb-4"></div>
+                <div class="shimmer shimmer-card mb-4"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Floating WhatsApp Button -->
+    <div class="fixed bottom-24 right-4 z-20">
+        <button class="bg-green-500 text-white p-3 rounded-full shadow-lg hover:bg-green-600 transition-colors ripple" onclick="window.location.href='/chat.html'" aria-label="Chat with us on WhatsApp">
+            <i data-feather="message-circle" class="w-6 h-6" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 z-10" role="navigation" aria-label="Main navigation">
+        <div class="flex justify-around items-center h-16">
+            <a href="/index.html" class="flex flex-col items-center text-neutral-gray">
+                <i data-feather="home" class="w-6 h-6" aria-hidden="true"></i>
+                <span class="text-xs mt-1">Home</span>
+            </a>
+            <a href="/categories.html" class="flex flex-col items-center text-neutral-gray">
+                <i data-feather="grid" class="w-6 h-6" aria-hidden="true"></i>
+                <span class="text-xs mt-1">Categories</span>
+            </a>
+            <a href="/cart.html" class="flex flex-col items-center text-neutral-gray cart-button">
+                <div class="relative">
+                    <i data-feather="shopping-cart" class="w-6 h-6" aria-hidden="true"></i>
+                    <span class="absolute -top-1 -right-1 bg-orange-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center" id="bottom-cart-count" aria-label="Cart items count">0</span>
+                </div>
+                <span class="text-xs mt-1">Cart</span>
+            </a>
+            <a href="/orders.html" class="flex flex-col items-center text-orange-500" aria-current="page">
+                <i data-feather="package" class="w-6 h-6" aria-hidden="true"></i>
+                <span class="text-xs mt-1">Orders</span>
+            </a>
+            <a href="/profile.html" class="flex flex-col items-center text-neutral-gray">
+                <i data-feather="user" class="w-6 h-6" aria-hidden="true"></i>
+                <span class="text-xs mt-1">Profile</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        feather.replace();
+
+        const API_BASE_URL = 'https://one0kvendor.onrender.com/api';
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type} shadow-lg`;
+            toast.textContent = message;
+            toast.setAttribute('role', 'alert');
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.classList.add('show'); }, 100);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.remove(); }, 300); }, 2000);
+        }
+
+        let socket;
+        async function initWebSocket(token) {
+            socket = io('https://one0kvendor.onrender.com');
+            socket.on('connect', () => {
+                socket.emit('joinUser', { token: `Bearer ${token}` });
+            });
+            socket.on('orderStatusUpdate', () => {
+                fetchOrders();
+                showToast('Order status updated', 'success');
+            });
+        }
+
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showToast('Please log in to view orders', 'error');
+                setTimeout(() => { window.location.href = '/login.html?redirect=orders'; }, 2000);
+                return false;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/profile`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    throw new Error(`Profile fetch failed: ${response.status}`);
+                }
+                initWebSocket(token);
+                return true;
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showToast('Authentication failed. Please log in again.', 'error');
+                localStorage.removeItem('token');
+                setTimeout(() => { window.location.href = '/login.html?redirect=orders'; }, 2000);
+                return false;
+            }
+        }
+
+        function showError(message) {
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        async function fetchOrders() {
+            if (!(await checkAuth())) return;
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    let errorMessage = 'Failed to load orders';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (jsonError) {
+                        errorMessage = 'Network error occurred';
+                    }
+                    throw new Error(errorMessage);
+                }
+                const orders = await response.json();
+                renderOrders(orders);
+                fetchCart();
+            } catch (error) {
+                console.error('Error fetching orders:', error);
+                showError('Failed to load orders. Please try again.');
+                showToast(`Failed to load orders: ${error.message}`, 'error');
+                document.querySelector('#active-orders').innerHTML = '<p class="text-center text-neutral-gray">Failed to load orders. Please try again.</p>';
+                document.querySelector('#order-history').innerHTML = '<p class="text-center text-neutral-gray">Failed to load order history. Please try again.</p>';
+            }
+        }
+
+        function renderOrders(orders) {
+            const activeOrders = orders.filter(order => order.status !== 'Delivered');
+            const historyOrders = orders.filter(order => order.status === 'Delivered');
+
+            const activeContainer = document.querySelector('#active-orders');
+            activeContainer.innerHTML = activeOrders.length === 0
+                ? `
+                    <div class="text-center text-neutral-gray py-8">
+                        <i data-feather="package" class="w-12 h-12 mx-auto mb-2" aria-hidden="true"></i>
+                        <p>No active orders.</p>
+                    </div>
+                `
+                : activeOrders.map(order => renderOrderCard(order, true)).join('');
+
+            const historyContainer = document.querySelector('#order-history');
+            historyContainer.innerHTML = historyOrders.length === 0
+                ? `
+                    <div class="text-center text-neutral-gray py-8">
+                        <i data-feather="archive" class="w-12 h-12 mx-auto mb-2" aria-hidden="true"></i>
+                        <p>No order history.</p>
+                    </div>
+                `
+                : historyOrders.map(order => renderOrderCard(order, false)).join('');
+
+            feather.replace();
+            setupRippleEffect();
+            setupOrderDetailsModal();
+        }
+
+        function renderOrderCard(order, isActive) {
+            const firstItem = order.items[0];
+            const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+            const placedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            });
+
+            return `
+                <div class="order-card bg-white rounded-xl p-4 shadow-sm mb-4 transition-all duration-300" role="listitem">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-sm font-bold">Order #${order.orderNumber}</h3>
+                        <span class="text-xs text-${order.status === 'Delivered' ? 'green' : 'orange'}-500">
+                            ${order.status}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Placed on: ${placedDate}</p>
+                    <div class="flex items-center mb-2">
+                        <div class="w-16 h-16 bg-gray-100 rounded-lg mr-3">
+                            <img src="${firstItem.product?.images?.[0]?.url || 'https://via.placeholder.com/64'}" alt="${firstItem.product?.name || 'Product'}" class="w-full h-full object-cover rounded-lg" loading="lazy">
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium">${firstItem.product?.name || 'Unknown Product'}</p>
+                            <p class="text-xs text-gray-500">Qty: ${totalItems} | ₦${order.total.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    ${isActive ? `
+                        <button class="track-order-btn w-full py-2 bg-orange-500 text-white rounded-full font-medium ripple" onclick="trackOrder('${order._id}')" aria-label="Track order ${order.orderNumber}">
+                            Track Order
+                        </button>
+                        <div id="tracking-${order._id}" class="tracking-details hidden mt-4">
+                            <h4 class="text-sm font-medium mb-2">Tracking Details</h4>
+                            ${renderTrackingSteps(order.tracking)}
+                        </div>
+                    ` : `
+                        <button class="w-full py-2 bg-gray-200 text-gray-700 rounded-full font-medium ripple" onclick="showOrderDetails('${order._id}')" aria-label="View details for order ${order.orderNumber}">
+                            View Details
+                        </button>
+                    `}
+                </div>
+            `;
+        }
+
+        function renderTrackingSteps(tracking) {
+            const steps = [
+                { status: 'Placed', icon: 'check', label: 'Order Placed' },
+                { status: 'Packed', icon: 'package', label: 'Order Packed' },
+                { status: 'In Transit', icon: 'truck', label: 'In Transit' },
+                { status: 'Delivered', icon: 'home', label: 'Delivered' },
+                { status: 'Cancelled', icon: 'x', label: 'Cancelled' }
+            ];
+
+            return steps.map((step, index) => {
+                const trackingEvent = tracking.find(t => t.status === step.status);
+                const isCompleted = trackingEvent && new Date(trackingEvent.date) <= new Date();
+                const date = trackingEvent ? new Date(trackingEvent.date).toLocaleString('en-US', {
+                    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : `Pending`;
+
+                return `
+                    <div class="tracking-step ${isCompleted ? 'completed' : ''}">
+                        <div class="flex items-center mb-3">
+                            <div class="tracking-icon w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center mr-3">
+                                <i data-feather="${step.icon}" class="w-4 h-4" aria-hidden="true"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium">${step.label}</p>
+                                <p class="text-xs text-gray-500">${date}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function showOrderDetails(orderId) {
+            const modal = document.getElementById('order-details-modal');
+            const content = document.getElementById('order-details-content');
+            content.innerHTML = `
+                <div class="shimmer w-full h-4 mb-2"></div>
+                <div class="shimmer w-3/4 h-4 mb-2"></div>
+                <div class="shimmer w-full h-16 mb-2"></div>
+                <div class="shimmer w-1/2 h-4 mb-2"></div>
+            `;
+            modal.style.display = 'flex';
+            modal.classList.add('show');
+            feather.replace();
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to fetch order details');
+                }
+                const order = await response.json();
+                const placedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+                    day: '2-digit', month: 'short', year: 'numeric'
+                });
+                content.innerHTML = `
+                    <p class="text-sm font-bold mb-2">Order #${order.orderNumber}</p>
+                    <p class="text-xs text-gray-500 mb-4">Placed on: ${placedDate}</p>
+                    <h3 class="text-sm font-medium mb-2">Items</h3>
+                    ${order.items.map(item => `
+                        <div class="flex items-center mb-4">
+                            <img src="${item.product?.images?.[0]?.url || 'https://via.placeholder.com/64'}" alt="${item.product?.name || 'Product'}" class="w-12 h-12 object-cover rounded-lg mr-3" loading="lazy">
+                            <div>
+                                <p class="text-sm font-medium">${item.product?.name || 'Unknown Product'}</p>
+                                <p class="text-xs text-gray-500">Qty: ${item.quantity} | ₦${item.price.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <p class="text-sm font-bold">Total: ₦${order.total.toLocaleString()}</p>
+                    <p class="text-xs text-gray-500 mt-2">Status: <span class="text-green-500">${order.status}</span></p>
+                    ${order.tracking.length > 0 ? `
+                        <h3 class="text-sm font-medium mt-4 mb-2">Tracking Details</h3>
+                        ${renderTrackingSteps(order.tracking)}
+                    ` : ''}
+                `;
+                feather.replace();
+            } catch (error) {
+                console.error('Error fetching order details:', error);
+                content.innerHTML = '<p class="text-center text-neutral-gray">Failed to load order details.</p>';
+                showToast('Failed to load order details.', 'error');
+            }
+        }
+
+        function setupOrderDetailsModal() {
+            const modal = document.getElementById('order-details-modal');
+            const closeModalBtn = document.getElementById('close-order-details-modal');
+
+            closeModalBtn.addEventListener('click', () => {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                }, 300);
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 300);
+                }
+            });
+        }
+
+        function trackOrder(orderId) {
+            if ('vibrate' in navigator) {
+                navigator.vibrate(50);
+            }
+            showOrderDetails(orderId);
+        }
+
+        function updateCartCount(cart) {
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.querySelector('#bottom-cart-count').textContent = count;
+            document.querySelector('#bottom-cart-count').setAttribute('aria-label', `Cart items count: ${count}`);
+            document.querySelector('#bottom-cart-count').classList.toggle('animate-bounce', count > 0);
+        }
+
+        async function fetchCart() {
+            try {
+                const token = localStorage.getItem('token');
+                let cart = [];
+                if (token) {
+                    const response = await fetch(`${API_BASE_URL}/carts/me`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) {
+                        let errorMessage = 'Failed to fetch cart';
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.message || errorMessage;
+                        } catch (jsonError) {
+                            errorMessage = 'Network error occurred';
+                        }
+                        throw new Error(errorMessage);
+                    }
+                    cart = (await response.json()).items || [];
+                } else {
+                    cart = JSON.parse(localStorage.getItem('guestCart') || '[]');
+                }
+                updateCartCount(cart);
+            } catch (error) {
+                console.error('Error fetching cart:', error);
+                showToast(`Failed to load cart: ${error.message}`, 'error');
+            }
+        }
+
+        function setupCartNavigation() {
+            document.querySelectorAll('.cart-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    if ('vibrate' in navigator) {
+                        navigator.vibrate(50);
+                    }
+                    window.location.href = '/cart.html';
+                });
+            });
+        }
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            document.querySelectorAll('.flex-1').forEach(btn => {
+                btn.classList.remove('border-orange-500', 'text-orange-500');
+                btn.classList.add('text-gray-500');
+                btn.setAttribute('aria-selected', 'false');
+            });
+            document.querySelector(`.${tabId}-tab`).classList.add('border-orange-500', 'text-orange-500');
+            document.querySelector(`.${tabId}-tab`).setAttribute('aria-selected', 'true');
+        }
+
+        function setupRippleEffect() {
+            document.querySelectorAll('.ripple').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    const rect = this.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    this.style.setProperty('--x', x + 'px');
+                    this.style.setProperty('--y', y + 'px');
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            feather.replace();
+            setTimeout(() => {
+                if (checkAuth()) {
+                    fetchOrders();
+                    setupCartNavigation();
+                    setupRippleEffect();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
