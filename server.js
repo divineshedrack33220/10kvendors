@@ -4,18 +4,15 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
-const webPush = require('web-push'); // Added for push notifications
+const webPush = require('web-push');
+const mongoose = require('mongoose');
 const VisitorLocation = require('./models/VisitorLocation');
 const Order = require('./models/Order');
 
-// Connect DB
 const connectDB = require('./config/db');
-
-// Middleware
 const errorHandler = require('./middleware/errorHandler');
 const auth = require('./middleware/auth');
 
-// Routes
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
@@ -37,61 +34,56 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:5000'],
+    origin: ['http://localhost:3000', 'https://one0kvendor.onrender.com'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
   },
 });
 
-// Attach io to app for use in controllers
 app.set('io', io);
 
-// Simple logger toggle (disable logs in production)
 const log = (...args) => {
   if (process.env.NODE_ENV !== 'production') {
     console.log(...args);
   }
 };
 
-// Configure VAPID keys for push notifications
 webPush.setVapidDetails(
-  'mailto:your-email@example.com',
+  'mailto:divineshedarck1@gmail.com ',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
 
-// Store push subscriptions (in-memory; use MongoDB in production)
-let pushSubscriptions = [];
+const pushSubscriptionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  subscription: { type: Object, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 
-// Global Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5000'],
+  origin: ['http://localhost:3000', 'https://one0kvendor.onrender.com'],
   credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logger
 app.use((req, res, next) => {
   log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
-// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/static', express.static(path.join(__dirname, 'public')));
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
 app.use('/admin/static', express.static(path.join(__dirname, 'admin/static')));
 
-// Fallback for root route to serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Connect to MongoDB
 connectDB();
 
-// WebSocket for real-time updates
 io.on('connection', (socket) => {
   log('WebSocket client connected:', socket.id);
 
@@ -160,6 +152,23 @@ io.on('connection', (socket) => {
 
       if (populatedOrder.user && populatedOrder.user._id) {
         io.to(`user_${populatedOrder.user._id}`).emit('orderStatusUpdate', populatedOrder);
+
+        const subscriptions = await PushSubscription.find({ userId: populatedOrder.user._id });
+        const payload = JSON.stringify({
+          title: '10kVendor Order Update',
+          body: `Order #${populatedOrder.orderNumber} is now ${populatedOrder.status}`,
+          url: '/orders.html'
+        });
+
+        for (const { subscription } of subscriptions) {
+          try {
+            await webPush.sendNotification(subscription, payload);
+            log(`Push notification sent to user ${populatedOrder.user._id}`);
+          } catch (error) {
+            log(`Failed to send push notification to user ${populatedOrder.user._id}: ${error.message}`);
+            await PushSubscription.deleteOne({ subscription });
+          }
+        }
       } else {
         log('No valid user ID for orderStatusUpdate:', populatedOrder);
       }
@@ -173,7 +182,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Notify admins of new visitor
 app.use(async (req, res, next) => {
   if (req.originalUrl.startsWith('/api/locations')) return next();
   next();
@@ -187,12 +195,19 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Push notification routes
 app.post('/api/push/subscribe', auth, express.json(), async (req, res) => {
   try {
     const subscription = req.body;
-    const userId = req.user.id; // From auth middleware
-    pushSubscriptions.push({ userId, subscription });
+    const userId = req.user.id;
+    if (!subscription) {
+      return res.status(400).json({ error: 'Subscription data is required' });
+    }
+
+    await PushSubscription.updateOne(
+      { userId },
+      { $set: { subscription, createdAt: new Date() } },
+      { upsert: true }
+    );
     log(`Push subscription saved for user ${userId}`);
     res.status(201).json({ message: 'Subscription saved' });
   } catch (error) {
@@ -206,28 +221,26 @@ app.post('/api/push/send', auth, express.json(), async (req, res) => {
     const { title, body, url, userId } = req.body;
     const payload = JSON.stringify({ title, body, url });
 
-    // Filter subscriptions by userId if provided, else send to all
-    const targetSubscriptions = userId
-      ? pushSubscriptions.filter(sub => sub.userId === userId)
-      : pushSubscriptions;
+    const query = userId ? { userId } : {};
+    const subscriptions = await PushSubscription.find(query);
 
-    if (targetSubscriptions.length === 0) {
+    if (subscriptions.length === 0) {
       return res.status(404).json({ error: 'No subscriptions found' });
     }
 
     await Promise.all(
-      targetSubscriptions.map(({ subscription }) =>
-        webPush.sendNotification(subscription, payload).catch(error => {
+      subscriptions.map(async ({ subscription }) => {
+        try {
+          await webPush.sendNotification(subscription, payload);
+          log(`Push notification sent to subscription`);
+        } catch (error) {
           log(`Failed to send push notification: ${error.message}`);
-          // Remove invalid subscription
-          pushSubscriptions = pushSubscriptions.filter(
-            sub => sub.subscription !== subscription
-          );
-        })
-      )
+          await PushSubscription.deleteOne({ subscription });
+        }
+      })
     );
 
-    log(`Sent push notifications to ${targetSubscriptions.length} users`);
+    log(`Sent push notifications to ${subscriptions.length} users`);
     res.status(200).json({ message: 'Notifications sent' });
   } catch (error) {
     log('Error sending push notifications:', error.message);
@@ -235,7 +248,6 @@ app.post('/api/push/send', auth, express.json(), async (req, res) => {
   }
 });
 
-// API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -253,7 +265,6 @@ app.use('/api/ads', adRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/customers', customerRoutes);
 
-// Debug 404 routes
 app.use((req, res, next) => {
   log(`404: Route not found for ${req.method} ${req.originalUrl}`);
   res.status(404).send('Route not found');
@@ -261,6 +272,5 @@ app.use((req, res, next) => {
 
 app.use(errorHandler);
 
-// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => log(`✅ Server running on port ${PORT}`));
