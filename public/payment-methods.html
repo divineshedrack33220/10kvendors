@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Methods - 10kVendor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-orange: #FF7A2F;
+            --secondary-brown: #3E2723;
+            --accent-cream: #FFF6ED;
+            --neutral-gray: #555555;
+            --light-gray: #EDEDED;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--accent-cream);
+            color: var(--secondary-brown);
+        }
+
+        .payment-card {
+            transition: all 0.3s ease;
+        }
+
+        .payment-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple:after {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10,10);
+            opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+
+        .ripple:active:after {
+            transform: scale(0,0);
+            opacity: .3;
+            transition: 0s;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 20;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .error-text {
+            color: red;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+
+        /* Toast Notification Styles */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            min-width: 250px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.875rem;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.success {
+            background-color: #10B981; /* Green for success */
+        }
+        .toast.error {
+            background-color: #EF4444; /* Red for error */
+        }
+        .toast .toast-icon {
+            margin-right: 8px;
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 1200px;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+    <!-- Top Navigation -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <button onclick="history.back()" class="p-2 rounded-full hover:bg-gray-100">
+                <i data-feather="arrow-left" class="text-gray-700"></i>
+            </button>
+            <h1 class="text-xl font-bold">Payment Methods</h1>
+            <button class="p-2 rounded-full hover:bg-gray-100 invisible">
+                <i data-feather="more-vertical" class="text-gray-700"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-4">
+        <!-- Payment Methods Section -->
+        <section class="mb-8">
+            <h2 class="text-xl font-bold mb-4">Your Payment Methods</h2>
+            <div class="space-y-4 mb-6" id="payment-container">
+                <!-- Payment methods will be dynamically loaded here -->
+            </div>
+        </section>
+
+        <!-- Add Payment Method Form -->
+        <section class="mb-8">
+            <h2 class="text-xl font-bold mb-4">Add New Payment Method</h2>
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <form id="add-payment-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Payment Type</label>
+                        <select name="type" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="card">Credit/Debit Card</option>
+                            <option value="mobile">Mobile Money</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
+                        <p class="error-text" id="type-error"></p>
+                    </div>
+                    <div id="card-fields" class="payment-fields">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Card Number</label>
+                            <input type="text" name="cardNumber" placeholder="Enter card number" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="cardNumber-error"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Expiry Date</label>
+                                <input type="text" name="expiry" placeholder="MM/YY" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <p class="error-text" id="expiry-error"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">CVV</label>
+                                <input type="text" name="cvv" placeholder="CVV" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <p class="error-text" id="cvv-error"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="mobile-fields" class="payment-fields hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Phone Number</label>
+                            <input type="tel" name="phone" placeholder="e.g., +2341234567890" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="phone-error"></p>
+                        </div>
+                    </div>
+                    <div id="bank-fields" class="payment-fields hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Account Number</label>
+                            <input type="text" name="accountNumber" placeholder="Enter account number" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="accountNumber-error"></p>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Bank Name</label>
+                            <input type="text" name="bankName" placeholder="Enter bank name" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="bankName-error"></p>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">
+                            <input type="checkbox" name="isDefault" class="mr-2"> Set as Default
+                        </label>
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-orange-500 text-white rounded-full font-medium ripple">Save Payment Method</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Edit Payment Method Modal -->
+        <div id="edit-payment-modal" class="modal">
+            <div class="modal-content">
+                <h2 class="text-xl font-bold mb-4">Edit Payment Method</h2>
+                <form id="edit-payment-form">
+                    <input type="hidden" name="id">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Payment Type</label>
+                        <select name="type" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <option value="card">Credit/Debit Card</option>
+                            <option value="mobile">Mobile Money</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
+                        <p class="error-text" id="edit-type-error"></p>
+                    </div>
+                    <div id="edit-card-fields" class="payment-fields">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Card Number</label>
+                            <input type="text" name="cardNumber" placeholder="Enter card number" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="edit-cardNumber-error"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Expiry Date</label>
+                                <input type="text" name="expiry" placeholder="MM/YY" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <p class="error-text" id="edit-expiry-error"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">CVV</label>
+                                <input type="text" name="cvv" placeholder="CVV" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <p class="error-text" id="edit-cvv-error"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="edit-mobile-fields" class="payment-fields hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Phone Number</label>
+                            <input type="tel" name="phone" placeholder="e.g., +2341234567890" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="edit-phone-error"></p>
+                        </div>
+                    </div>
+                    <div id="edit-bank-fields" class="payment-fields hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Account Number</label>
+                            <input type="text" name="accountNumber" placeholder="Enter account number" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="edit-accountNumber-error"></p>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-1">Bank Name</label>
+                            <input type="text" name="bankName" placeholder="Enter bank name" class="w-full py-2 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <p class="error-text" id="edit-bankName-error"></p>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">
+                            <input type="checkbox" name="isDefault" class="mr-2"> Set as Default
+                        </label>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="w-1/2 py-2 bg-orange-500 text-white rounded-full font-medium ripple">Save</button>
+                        <button type="button" id="cancel-edit" class="w-1/2 py-2 bg-gray-300 text-gray-700 rounded-full font-medium">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete Payment Method Modal -->
+        <div id="delete-payment-modal" class="modal">
+            <div class="modal-content">
+                <h2 class="text-xl font-bold mb-4">Confirm Delete</h2>
+                <p class="text-sm text-gray-500 mb-4">Are you sure you want to delete this payment method?</p>
+                <div class="flex space-x-2">
+                    <button type="button" id="confirm-delete-btn" class="w-1/2 py-2 bg-orange-500 text-white rounded-full font-medium ripple">Yes, Delete</button>
+                    <button type="button" id="cancel-delete-btn" class="w-1/2 py-2 bg-gray-300 text-gray-700 rounded-full font-medium">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Floating WhatsApp Button -->
+    <div class="fixed bottom-24 right-4 z-20">
+        <button class="bg-green-500 text-white p-3 rounded-full shadow-lg hover:bg-green-600 transition-colors">
+            <i data-feather="message-circle" class="w-6 h-6"></i>
+        </button>
+    </div>
+
+    <script>
+        feather.replace();
+
+        const API_BASE_URL = 'https://one0kvendor.onrender.com/api';
+        let paymentToDelete = null;
+
+        // Toast Notification Function
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type} show`;
+            toast.innerHTML = `
+                <i data-feather="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="toast-icon"></i>
+                <span>${message}</span>
+            `;
+            toastContainer.appendChild(toast);
+            feather.replace();
+
+            // Auto-remove toast after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Check authentication
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.log('No token found, redirecting to login');
+                window.location.href = '/login.html?redirect=payment-methods';
+                return false;
+            }
+            return true;
+        }
+
+        // Validate inputs
+        function validateForm(form, prefix = '') {
+            let isValid = true;
+            const type = form.querySelector(`select[name="type"]`).value;
+            const cardNumber = form.querySelector(`input[name="cardNumber"]`)?.value.trim();
+            const expiry = form.querySelector(`input[name="expiry"]`)?.value.trim();
+            const cvv = form.querySelector(`input[name="cvv"]`)?.value.trim();
+            const phone = form.querySelector(`input[name="phone"]`)?.value.trim();
+            const accountNumber = form.querySelector(`input[name="accountNumber"]`)?.value.trim();
+            const bankName = form.querySelector(`input[name="bankName"]`)?.value.trim();
+
+            if (!type) {
+                form.querySelector(`#${prefix}type-error`).textContent = 'Payment type is required';
+                isValid = false;
+            }
+
+            if (type === 'card') {
+                if (!cardNumber || !/^\d{16}$/.test(cardNumber)) {
+                    form.querySelector(`#${prefix}cardNumber-error`).textContent = 'Valid 16-digit card number is required';
+                    isValid = false;
+                }
+                if (!expiry || !/^(0[1-9]|1[0-2])\/[0-9]{2}$/.test(expiry)) {
+                    form.querySelector(`#${prefix}expiry-error`).textContent = 'Valid expiry date (MM/YY) is required';
+                    isValid = false;
+                }
+                if (!cvv || !/^\d{3,4}$/.test(cvv)) {
+                    form.querySelector(`#${prefix}cvv-error`).textContent = 'Valid CVV (3-4 digits) is required';
+                    isValid = false;
+                }
+            } else if (type === 'mobile') {
+                if (!phone || !/^\+?[1-9]\d{1,14}$/.test(phone)) {
+                    form.querySelector(`#${prefix}phone-error`).textContent = 'Valid phone number (e.g., +2341234567890) is required';
+                    isValid = false;
+                }
+            } else if (type === 'bank') {
+                if (!accountNumber || !/^\d{10}$/.test(accountNumber)) {
+                    form.querySelector(`#${prefix}accountNumber-error`).textContent = 'Valid 10-digit account number is required';
+                    isValid = false;
+                }
+                if (!bankName) {
+                    form.querySelector(`#${prefix}bankName-error`).textContent = 'Bank name is required';
+                    isValid = false;
+                }
+            }
+
+            console.log('Form validation:', { type, cardNumber, expiry, cvv, phone, accountNumber, bankName, isValid });
+            return isValid;
+        }
+
+        // Clear form errors
+        function clearFormErrors(formId) {
+            const form = document.querySelector(formId);
+            form.querySelectorAll('.error-text').forEach(error => error.textContent = '');
+        }
+
+        // Toggle payment fields based on type
+        function togglePaymentFields(formId, type) {
+            const form = document.querySelector(formId);
+            const cardFields = form.querySelector(`#${formId.includes('edit') ? 'edit-' : ''}card-fields`);
+            const mobileFields = form.querySelector(`#${formId.includes('edit') ? 'edit-' : ''}mobile-fields`);
+            const bankFields = form.querySelector(`#${formId.includes('edit') ? 'edit-' : ''}bank-fields`);
+            
+            cardFields.classList.add('hidden');
+            mobileFields.classList.add('hidden');
+            bankFields.classList.add('hidden');
+            
+            if (type === 'card') cardFields.classList.remove('hidden');
+            else if (type === 'mobile') mobileFields.classList.remove('hidden');
+            else if (type === 'bank') bankFields.classList.remove('hidden');
+        }
+
+        // Fetch and render payment methods
+        async function fetchPayments() {
+            try {
+                const token = localStorage.getItem('token');
+                console.log('Fetching payments with token:', token.substring(0, 10) + '...');
+                const response = await fetch(`${API_BASE_URL}/payments`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to fetch payment methods: ${errorData.message || response.statusText} (${response.status})`);
+                }
+                const payments = await response.json();
+                console.log('Fetched payments:', payments);
+                renderPayments(payments);
+            } catch (error) {
+                console.error('Error fetching payments:', error);
+                document.querySelector('#payment-container').innerHTML = '<p class="text-center text-gray-500">Failed to load payment methods. Please try again.</p>';
+            }
+        }
+
+        // Render payment methods
+        function renderPayments(payments) {
+            const paymentContainer = document.querySelector('#payment-container');
+            paymentContainer.innerHTML = '';
+            if (payments.length === 0) {
+                paymentContainer.innerHTML = '<p class="text-center text-gray-500">No saved payment methods.</p>';
+                return;
+            }
+            payments.forEach(payment => {
+                const paymentCard = document.createElement('div');
+                paymentCard.className = 'payment-card bg-gray-50 rounded-lg p-4 transition-all duration-300';
+                let icon = 'credit-card';
+                let details = '';
+                if (payment.type === 'card') {
+                    icon = 'credit-card';
+                    details = `<p class="text-sm font-medium">${payment.cardNumber.replace(/\d(?=\d{4})/g, '*')}</p>
+                               <p class="text-sm text-gray-500">Expires ${payment.expiry}</p>`;
+                } else if (payment.type === 'mobile') {
+                    icon = 'smartphone';
+                    details = `<p class="text-sm font-medium">Mobile Money</p>
+                               <p class="text-sm text-gray-500">${payment.phone}</p>`;
+                } else if (payment.type === 'bank') {
+                    icon = 'briefcase';
+                    details = `<p class="text-sm font-medium">${payment.bankName}</p>
+                               <p class="text-sm text-gray-500">Account ****${payment.accountNumber.slice(-4)}</p>`;
+                }
+                paymentCard.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center">
+                            <i data-feather="${icon}" class="w-6 h-6 text-orange-500 mr-3"></i>
+                            <div>
+                                ${details}
+                                ${payment.isDefault ? '<p class="text-xs text-orange-500">Default</p>' : ''}
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="text-orange-500 text-sm font-medium hover:text-orange-600 edit-btn" data-id="${payment._id}">Edit</button>
+                            <button class="text-red-500 text-sm font-medium hover:text-red-600 delete-btn" data-id="${payment._id}">Delete</button>
+                        </div>
+                    </div>
+                `;
+                paymentContainer.appendChild(paymentCard);
+            });
+
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => editPayment(btn.dataset.id));
+            });
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    paymentToDelete = btn.dataset.id;
+                    showDeleteModal();
+                });
+            });
+            feather.replace();
+        }
+
+        // Add new payment method
+        async function addPayment(e) {
+            e.preventDefault();
+            const form = e.target;
+            clearFormErrors('#add-payment-form');
+            if (!validateForm(form)) {
+                console.log('Form validation failed, stopping submission');
+                return;
+            }
+
+            const type = form.querySelector('select[name="type"]').value;
+            const cardNumber = form.querySelector('input[name="cardNumber"]')?.value.trim();
+            const expiry = form.querySelector('input[name="expiry"]')?.value.trim();
+            const cvv = form.querySelector('input[name="cvv"]')?.value.trim();
+            let phone = form.querySelector('input[name="phone"]')?.value.trim();
+            const accountNumber = form.querySelector('input[name="accountNumber"]')?.value.trim();
+            const bankName = form.querySelector('input[name="bankName"]')?.value.trim();
+            const isDefault = form.querySelector('input[name="isDefault"]').checked;
+
+            // Auto-prefix phone for mobile money
+            if (type === 'mobile' && phone && !phone.startsWith('+')) {
+                phone = `+234${phone}`;
+                if (!/^\+?[1-9]\d{1,14}$/.test(phone)) {
+                    form.querySelector('#phone-error').textContent = 'Invalid phone number after prefixing (e.g., +2341234567890)';
+                    console.log('Invalid phone after prefixing:', phone);
+                    return;
+                }
+            }
+
+            const payload = { type, isDefault };
+            if (type === 'card') {
+                payload.cardNumber = cardNumber;
+                payload.expiry = expiry;
+                payload.cvv = cvv;
+            } else if (type === 'mobile') {
+                payload.phone = phone;
+            } else if (type === 'bank') {
+                payload.accountNumber = accountNumber;
+                payload.bankName = bankName;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                console.log('Sending POST /api/payments with payload:', payload);
+                const response = await fetch(`${API_BASE_URL}/payments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.log('POST failed with response:', errorData, `Status: ${response.status}`);
+                    throw new Error(`Failed to add payment method: ${errorData.message || response.statusText} (${response.status})`);
+                }
+                const newPayment = await response.json();
+                console.log('Payment method added successfully:', newPayment);
+                form.reset();
+                form.querySelector('select[name="type"]').value = 'card';
+                togglePaymentFields('#add-payment-form', 'card');
+                await fetchPayments();
+                showToast('Payment method added successfully!', 'success');
+            } catch (error) {
+                console.error('Error adding payment method:', error);
+                showToast(`Failed to add payment method: ${error.message}`, 'error');
+            }
+        }
+
+        // Edit payment method
+        async function editPayment(id) {
+            try {
+                const token = localStorage.getItem('token');
+                console.log('Fetching payment ID:', id);
+                const response = await fetch(`${API_BASE_URL}/payments/${id}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to fetch payment method: ${errorData.message || response.statusText} (${response.status})`);
+                }
+                const payment = await response.json();
+                console.log('Fetched payment for edit:', payment);
+
+                const modal = document.querySelector('#edit-payment-modal');
+                const form = modal.querySelector('#edit-payment-form');
+                form.querySelector('input[name="id"]').value = payment._id;
+                form.querySelector('select[name="type"]').value = payment.type;
+                form.querySelector('input[name="cardNumber"]').value = payment.cardNumber || '';
+                form.querySelector('input[name="expiry"]').value = payment.expiry || '';
+                form.querySelector('input[name="cvv"]').value = payment.cvv || '';
+                form.querySelector('input[name="phone"]').value = payment.phone || '';
+                form.querySelector('input[name="accountNumber"]').value = payment.accountNumber || '';
+                form.querySelector('input[name="bankName"]').value = payment.bankName || '';
+                form.querySelector('input[name="isDefault"]').checked = payment.isDefault;
+
+                clearFormErrors('#edit-payment-form');
+                togglePaymentFields('#edit-payment-form', payment.type);
+                modal.style.display = 'flex';
+            } catch (error) {
+                console.error('Error fetching payment for edit:', error);
+                showToast(`Failed to load payment method: ${error.message}`, 'error');
+            }
+        }
+
+        // Update payment method
+        async function updatePayment(e) {
+            e.preventDefault();
+            const form = e.target;
+            clearFormErrors('#edit-payment-form');
+            if (!validateForm(form, 'edit-')) {
+                console.log('Edit form validation failed, stopping submission');
+                return;
+            }
+
+            const id = form.querySelector('input[name="id"]').value;
+            const type = form.querySelector('select[name="type"]').value;
+            const cardNumber = form.querySelector('input[name="cardNumber"]')?.value.trim();
+            const expiry = form.querySelector('input[name="expiry"]')?.value.trim();
+            const cvv = form.querySelector('input[name="cvv"]')?.value.trim();
+            let phone = form.querySelector('input[name="phone"]')?.value.trim();
+            const accountNumber = form.querySelector('input[name="accountNumber"]')?.value.trim();
+            const bankName = form.querySelector('input[name="bankName"]')?.value.trim();
+            const isDefault = form.querySelector('input[name="isDefault"]').checked;
+
+            // Auto-prefix phone for mobile money
+            if (type === 'mobile' && phone && !phone.startsWith('+')) {
+                phone = `+234${phone}`;
+                if (!/^\+?[1-9]\d{1,14}$/.test(phone)) {
+                    form.querySelector('#edit-phone-error').textContent = 'Invalid phone number after prefixing (e.g., +2341234567890)';
+                    console.log('Invalid phone after prefixing:', phone);
+                    return;
+                }
+            }
+
+            const payload = { type, isDefault };
+            if (type === 'card') {
+                payload.cardNumber = cardNumber;
+                payload.expiry = expiry;
+                payload.cvv = cvv;
+            } else if (type === 'mobile') {
+                payload.phone = phone;
+            } else if (type === 'bank') {
+                payload.accountNumber = accountNumber;
+                payload.bankName = bankName;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                console.log('Sending PUT /api/payments/' + id, payload);
+                const response = await fetch(`${API_BASE_URL}/payments/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.log('PUT failed with response:', errorData, `Status: ${response.status}`);
+                    throw new Error(`Failed to update payment method: ${errorData.message || response.statusText} (${response.status})`);
+                }
+                console.log('Payment method updated successfully');
+                document.querySelector('#edit-payment-modal').style.display = 'none';
+                await fetchPayments();
+                showToast('Payment method updated successfully!', 'success');
+            } catch (error) {
+                console.error('Error updating payment method:', error);
+                showToast(`Failed to update payment method: ${error.message}`, 'error');
+            }
+        }
+
+        // Delete payment method
+        function showDeleteModal() {
+            document.querySelector('#delete-payment-modal').style.display = 'flex';
+        }
+
+        function hideDeleteModal() {
+            document.querySelector('#delete-payment-modal').style.display = 'none';
+            paymentToDelete = null;
+        }
+
+        async function confirmDeletePayment() {
+            if (!paymentToDelete) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                console.log('Sending DELETE /api/payments/' + paymentToDelete);
+                const response = await fetch(`${API_BASE_URL}/payments/${paymentToDelete}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.log('DELETE failed with response:', errorData, `Status: ${response.status}`);
+                    throw new Error(`Failed to delete payment method: ${errorData.message || response.statusText} (${response.status})`);
+                }
+                console.log('Payment method deleted successfully');
+                hideDeleteModal();
+                await fetchPayments();
+                showToast('Payment method deleted successfully!', 'success');
+            } catch (error) {
+                console.error('Error deleting payment method:', error);
+                hideDeleteModal();
+                showToast(`Failed to delete payment method: ${error.message}`, 'error');
+            }
+        }
+
+        function setupDeleteModal() {
+            document.querySelector('#confirm-delete-btn').addEventListener('click', confirmDeletePayment);
+            document.querySelector('#cancel-delete-btn').addEventListener('click', hideDeleteModal);
+        }
+
+        // Ripple effect for buttons
+        function setupRippleEffect() {
+            document.querySelectorAll('.ripple').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    const rect = this.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    this.style.setProperty('--x', x + 'px');
+                    this.style.setProperty('--y', y + 'px');
+                });
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                console.log('Initializing Payment Methods page');
+                fetchPayments();
+                setupRippleEffect();
+                setupDeleteModal();
+                document.querySelector('#add-payment-form').addEventListener('submit', addPayment);
+                document.querySelector('#edit-payment-form').addEventListener('submit', updatePayment);
+                document.querySelector('#cancel-edit').addEventListener('click', () => {
+                    document.querySelector('#edit-payment-modal').style.display = 'none';
+                });
+
+                // Toggle payment fields on type change
+                document.querySelectorAll('select[name="type"]').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const formId = e.target.closest('form').id;
+                        togglePaymentFields(`#${formId}`, e.target.value);
+                    });
+                });
+
+                // Set initial field visibility
+                togglePaymentFields('#add-payment-form', 'card');
+                togglePaymentFields('#edit-payment-form', 'card');
+            }
+        });
+    </script>
+</body>
+</html>
