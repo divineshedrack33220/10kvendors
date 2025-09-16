@@ -49,7 +49,7 @@ const log = (...args) => {
 };
 
 webPush.setVapidDetails(
-  'mailto:divineshedarck1@gmail.com ',
+  'mailto:divineshedrack1@gmail.com ',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
@@ -274,3 +274,4 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => log(`✅ Server running on port ${PORT}`));
+
